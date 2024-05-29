@@ -46,9 +46,9 @@ while True:
     _, mask = cv2.threshold(mask, 254, 255, cv2.THRESH_BINARY)
     contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
     #contours are our 'found objects'
+    frame_ylist = []
     for cnt in contours:
         #for each contour we determine if its our ball
-        frame_ylist = []
 
         area = cv2.contourArea(cnt)
         #circularity calculated but not used here, may be useful later so left in
@@ -59,9 +59,9 @@ while True:
             x, y, w, h = cv2.boundingRect(cnt)
             frame_ylist.append(y)
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-        if len(frame_ylist)>0:
+    if len(frame_ylist)>0:
             #find the highest y value to avoid shadow objects
-            ylist.append(min(frame_ylist))
+        ylist.append(min(frame_ylist))
     #image show code
     cv2.imshow('image',frame)
     cv2.waitKey(0)
