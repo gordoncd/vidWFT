@@ -68,7 +68,12 @@ while True:
 
 #generates graph of y position, will be useful in actual project
 print(ylist)
+fig = plt.figure()
 plt.plot(ylist)
 plt.draw()
 plt.waitforbuttonpress(0)
+plt.title('graph of ball y position')
+plt.xlabel('frame')
+plt.ylabel('pixel position')
+fig.savefig('pingpong_testgraph.png')
 plt.close('all')
