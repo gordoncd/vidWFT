@@ -1,3 +1,10 @@
+'''
+Gordon Doore 
+camera-calibration-05-31-2024.py
+
+scipts to obtain calibration data for camera
+'''
+
 import numpy as np
 import cv2
 import glob
@@ -10,25 +17,25 @@ criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 objp = np.zeros((70,3), np.float32)
 objp[:,:2] = np.mgrid[0:7,0:10].T.reshape(-1,2)
 
-# Arrays to store object points and image points from all the images.
-objpoints = [] # 3d point in real world space
-imgpoints = [] # 2d points in image plane.
+# store points
+objpoints = [] # made up for the most part
+imgpoints = [] # points
 
-# List of images
+# list of image filepaths
 images = glob.glob('/Users/gordondoore/Documents/GitHub/waves-summer-2024/calib_frames/*.jpg') 
 for fname in images:
     img = cv2.imread(fname)
     #img = cv2.resize(img, (350,350))
 
     gray  = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    # Find the chess board corners
+    # find corners
     ret, corners = cv2.findChessboardCorners(gray, (7,10), flags = cv2.CALIB_CB_ADAPTIVE_THRESH+cv2.CALIB_CB_FAST_CHECK+cv2.CALIB_CB_NORMALIZE_IMAGE)
-    # If found, add object points, image points (after refining them)
+    #add points to image
     if ret:
         objpoints.append(objp)
         print(objp)
 
-        # Draw and display the corners
+        # draw corners
         img = cv2.drawChessboardCorners(img, (7,10), corners, ret)
         imgpoints.append(corners)
         cv2.imshow('img', img)
@@ -36,7 +43,7 @@ for fname in images:
 
 cv2.destroyAllWindows()
 
-# Calibrate camera
+# calibrate camera
 ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
 print("Camera matrix : \n")
@@ -56,8 +63,7 @@ cv2.imshow('Undistorted Image', undistorted_img)
 cv2.waitKey(0)
 cv2.destroyAllWindows()
 
-#save camera matrices to yml file: 
-# Save camera matrices to .yaml file
+#save camera matrices to yaml file: 
 data = {
     'camera_matrix': mtx.tolist(),
     'dist_coeff': dist.tolist(),

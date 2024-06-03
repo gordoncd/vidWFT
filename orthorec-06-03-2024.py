@@ -20,11 +20,12 @@ def pick_points(img):
         nonlocal img
         if event == cv2.EVENT_LBUTTONDOWN:
             chosen_points.append((x, y))
-            print(f"Point picked: ({x}, {y})")
-            cv2.circle(img, (x, y), 5, (0, 255, 0), -1)  # Draw a small circle at the picked point
-            cv2.imshow("Pick Points", img)
-            if len(chosen_points) == 4:
-                print("All points picked.")
+            print(f"Point picked: ({x},{y})")
+            cv2.circle(img, (x, y),5, (0, 255, 0), -1) 
+            cv2.imshow("Pick Points",img)
+
+            if len(chosen_points)  == 4:
+                print("All points picked." )
                 cv2.destroyAllWindows()
 
     cv2.namedWindow("Pick Points")
@@ -78,10 +79,10 @@ def order_points(pts):
 
 if __name__ == '__main__':
     #get input image
-    img = cv2.imread('practice_calibration_images/orthorec_prac4-06-03.jpg')
+    img = cv2.imread('practice_calibration_images/orthorec_prac3-06-03.jpg')
 
     old_points = np.array(pick_points(img), dtype=np.float32)
-    old_points = order_points(old_points)  # Order the points after they have been selected
+    old_points = order_points(old_points)  
 
     new_points = np.array([[0,0],[old_points[-1,0],0],[0,old_points[-1,1]],old_points[-1]], dtype=np.float32)
     rectified = rectify(img, old_points, new_points)
