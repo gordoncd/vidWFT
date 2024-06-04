@@ -16,8 +16,8 @@ def extract_calibration_frames(filepath, nframes):
     return frames
 
 if __name__ == '__main__':
-    calibration_frames = extract_calibration_frames('practice_calibration_images/GX010021.MP4',11)
+    calibration_frames = extract_calibration_frames('ortho_test_video.MP4',11)
     #save frames to their own images 
-    dest_folder = 'calib_frames/'
+    dest_folder = 'orthotest_frames/'
     for i, frame in enumerate(calibration_frames):
-        cv2.imwrite(dest_folder + f'calib_frame_{i}.jpg', frame)
+        cv2.imwrite(dest_folder + f'orthotest_frame_{i}.jpg', frame)

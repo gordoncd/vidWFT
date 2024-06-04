@@ -2,7 +2,7 @@
 Gordon Doore 
 camera-calibration-05-31-2024.py
 
-scipts to obtain calibration data for camera
+scripts to obtain calibration data for camera
 '''
 
 import numpy as np
