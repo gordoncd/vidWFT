@@ -3,9 +3,9 @@ Gordon Doore
 06/03/2024
 orthorec-06-03-2024.py
 
-functions to rectify image based on input quadrangle
+functions to rectify image
 
-Last Modified: 06/03/2024
+Last Modified: 06/07/2024
 
 '''
 
@@ -73,16 +73,103 @@ def order_points(pts):
     # return the ordered coordinates
     return rect
 
-def get_ppm(img, points, pixel_column, gradation_size):
+def two_largest(column):
+    indices = set()
+    first =  set()
+    second = set()
+    prev = None
+    indices.add(column[0])
+    for index in column:   
+        if prev ==None or len(indices) == 1:
+            prev = index
+            indices.add(index)
+            continue
+        if index == prev+1:
+            indices.add(index)
+        else: 
+            if len(indices)>len(first): 
+                proxy = first
+                first = indices
+                if len(proxy)>len(second):
+                    second = proxy
+            elif len(indices) > len(second):
+                second = indices
+
+            indices = set()
+        prev = index 
+        indices.add(index)
+    if column[-1] in indices:
+        #do the comparison again
+        if len(indices)>len(first): 
+            proxy = first
+            first = indices
+            if len(proxy)>len(second):
+                second = proxy
+        elif len(indices) > len(second):
+            second = indices
+    return first, second
+
+def find_difference_gradations(gradation_pix):
+    distances = []
+    for column in gradation_pix:
+        first,second = two_largest(column)
+        center1 = sum(first)/len(first)
+        center2 = sum(second)/len(second)
+        distance = abs(center1-center2)
+        distances.append(distance)
+        
+    return distances
+
+def find_gradations(img, lines, threshold_condition):
+    #lines is the lines produced when selecting one vertical slice of each stake
+    #returns points of the center of our gradations
+    all_stake_points = []
+    for line in lines:
+        #get the pixel value of the pixels defined by lines
+        pixels = img[line]
+        #threshold those values
+        gradation_idx = np.argwhere(threshold_condition(pixels))
+        #find the midpoint of the two biggest groups
+        first, second = two_largest(gradation_idx)
+        #first and second are sets, so we get their average value and just get the int of that up to half a pixel of error introduced here
+        mid1 = int(sum(first)/len(first))
+        mid2 = int(sum(second)/len(second))
+
+        stake_points = np.array([[line[mid1],line[mid2]]])
+        all_stake_points.append(stake_points)
+    #now return the indices of lines based on the index from we just got
+    return np.array(all_stake_points)
+
+def get_ppm(img, points, pixel_columns, gradation_size, stake_thresh, stake_grad_thresh, peaks_sampled):
     '''
     get ppm of different stakes, assumes it is relatively similar for the stake
-    ie that the camera is sufficiently far away that there is no perspective warping
-    in the vertical direction
+    ie that the camera is sufficiently far away that there is insignificant perspective warping
+    in the vertical direction and that stake is vertically aligned (parallel to the y axis)
     '''
+    gradation_pix = [np.argwhere(column < stake_grad_thresh) for column in pixel_columns]
+
+    distances = np.array(find_difference_gradations(gradation_pix))
+
+    #estimate ppm with distances: 
+    ppm_stake = distances/gradation_size
     
+    return ppm_stake
+
+def linear_transform(points):
+    #returns linear function for perspective warping between two stakes with gradations at points
+    #points: ndarray shape: (N_stakes, 2,2) 
+    #points[:,0] are the first gradation for a given stake
+    #points[:,1] are the second gradation for a given stake
+    
+    # Calculate the slope and intercept for each stake
+    slopes = (points[:, 1, 1] - points[:, 0, 1]) / (points[:, 1, 0] - points[:, 0, 0])
+    intercepts = points[:, 0, 1] - slopes * points[:, 0, 0]
+    
+    return slopes, intercepts
 
 
-def rectify_by_gradation(img,n_stakes):
+
+def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshold_condition):
     '''
     find gradated stakes and rectify image by size variation
 
@@ -96,33 +183,42 @@ def rectify_by_gradation(img,n_stakes):
     spaced in real space. 
     '''
     stake_columns = []
-
     #get points and lines
     all_points, all_lines = define_stakes(img,n_stakes)
 
+    img_with_lines = np.copy(img)
     #get pixel values of the lines and add them to stake_columns
     for stake in range(n_stakes):
-        rr = all_lines[stake][0]
-        cc = all_lines[stake][1]
+        rr = all_lines[stake][1]
+        cc = all_lines[stake][0]
         stake_line = img[rr,cc]
         stake_columns.append(stake_line)
+        # Draw the line on the image
+        img_with_lines = cv2.line(img_with_lines, (cc[0], rr[0]), (cc[-1], rr[-1]), (255, 0, 0), 2)
+
+    # Display the image with the lines
+    cv2.imshow('Image with Lines', img_with_lines)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()    
     
-    #once we have the columns we need to get ppm (pixel per meter) for each stake
-    #We will use pixel values according to spikes (gradations)
-    ppm_each_stake = get_ppm(img, all_points, stake_columns)
-    
-    #we will first threshold the image to binarize from spike to not spike
+    #find the points of the gradations: 
+    gradation_points = find_gradations(img,all_lines,threshold_condition)
 
+    #get linear functions for transformation: 
+    slopes, intercepts = linear_transform(gradation_points)
 
+    #get linear transformation matrix for perspective shift: 
+    matrix = np.zeros((3, 3), dtype=np.float32)
+    matrix[0, 0] = slopes[0]
+    matrix[0, 2] = intercepts[0]
+    matrix[1, 1] = slopes[1]
+    matrix[1, 2] = intercepts[1]
+    matrix[2, 2] = 1.0
 
+    # Apply perspective transformation to rectify image
+    rectified = cv2.warpPerspective(img, matrix, (img.shape[1], img.shape[0]))
 
-
-
-
-
-
-
-    pass
+    return rectified
 
 def define_stakes(img, n_stakes):
     '''
@@ -227,7 +323,7 @@ def rectify_video(input_video_path, output_video_path):
 
 if __name__ == '__main__':
     #get input image
-    img = cv2.imread('orthotest_frames/orthotest_frame_8.jpg')
+    #img = cv2.imread('orthotest_frames/orthotest_frame_8.jpg')
 
     # old_points = np.array(pick_points(img), dtype=np.float32)
     # old_points = order_points(old_points)  
@@ -238,6 +334,18 @@ if __name__ == '__main__':
     # cv2.waitKey(0)
 
     #rectify_video('pole_movement_1.MP4', 'rectified.mp4')
-    points, lines = define_stakes(img, 3)
-    print(lines[0])
+    #points, lines = define_stakes(img, 3)
+
+    # Load the video
+    cap = cv2.VideoCapture('gp4k_stakes.MP4')
+    # Get the first frame
+    ret, first_frame = cap.read()
+
+    #example columns 
+    col1 = np.array([2,3,4,5,6,7,8,9,30,31,51,52,53,54,55])
+    col2 = np.array([6,7,8,9,20,21,38,39,40,41,42,43])
+    col3 = np.array([7,8,9,10,11,12,13,14,32,33,34,35,61,62,63,64,65,66,67,68])
+
+    print(find_difference_gradations([col1,col2,col3]))
+
     
