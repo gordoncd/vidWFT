@@ -124,18 +124,24 @@ def find_gradations(img, lines, threshold_condition):
     #lines is the lines produced when selecting one vertical slice of each stake
     #returns points of the center of our gradations
     all_stake_points = []
+
+    #pair parts of lines
+    i=0
     for line in lines:
         #get the pixel value of the pixels defined by lines
-        pixels = img[line]
+        pixels = img[line[1],line[0]]
         #threshold those values
         gradation_idx = np.argwhere(threshold_condition(pixels))
         #find the midpoint of the two biggest groups
+        gradation_idx = np.squeeze(gradation_idx)
+        print(gradation_idx.shape)
         first, second = two_largest(gradation_idx)
         #first and second are sets, so we get their average value and just get the int of that up to half a pixel of error introduced here
         mid1 = int(sum(first)/len(first))
         mid2 = int(sum(second)/len(second))
 
-        stake_points = np.array([[line[mid1],line[mid2]]])
+        stake_points = np.squeeze(np.array([[line[1][mid1],line[0][mid1]],[line[1][mid2],line[0][mid2]]]))
+        i+=1
         all_stake_points.append(stake_points)
     #now return the indices of lines based on the index from we just got
     return np.array(all_stake_points)
@@ -169,7 +175,7 @@ def linear_transform(points):
 
 
 
-def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshold_condition):
+def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshold_condition, load_points_lines = None):
     '''
     find gradated stakes and rectify image by size variation
 
@@ -182,41 +188,28 @@ def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshol
     use distances to rectify image assuming that gradations are equally 
     spaced in real space. 
     '''
-    stake_columns = []
     #get points and lines
-    all_points, all_lines = define_stakes(img,n_stakes)
+    if load_points_lines == None:
+        all_points, all_lines = define_stakes(img,n_stakes)
+    else: 
+        all_points, all_lines = load_points_lines
 
-    img_with_lines = np.copy(img)
-    #get pixel values of the lines and add them to stake_columns
-    for stake in range(n_stakes):
-        rr = all_lines[stake][1]
-        cc = all_lines[stake][0]
-        stake_line = img[rr,cc]
-        stake_columns.append(stake_line)
-        # Draw the line on the image
-        img_with_lines = cv2.line(img_with_lines, (cc[0], rr[0]), (cc[-1], rr[-1]), (255, 0, 0), 2)
-
-    # Display the image with the lines
-    cv2.imshow('Image with Lines', img_with_lines)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()    
-    
     #find the points of the gradations: 
     gradation_points = find_gradations(img,all_lines,threshold_condition)
-
+    gradation_points = np.squeeze(gradation_points)
     #get linear functions for transformation: 
-    slopes, intercepts = linear_transform(gradation_points)
-
-    #get linear transformation matrix for perspective shift: 
-    matrix = np.zeros((3, 3), dtype=np.float32)
-    matrix[0, 0] = slopes[0]
-    matrix[0, 2] = intercepts[0]
-    matrix[1, 1] = slopes[1]
-    matrix[1, 2] = intercepts[1]
-    matrix[2, 2] = 1.0
-
-    # Apply perspective transformation to rectify image
-    rectified = cv2.warpPerspective(img, matrix, (img.shape[1], img.shape[0]))
+    
+    print(gradation_points)
+    old_points = np.flip(gradation_points, axis = 2)
+    print(old_points.shape)
+    old_points = old_points.reshape((old_points.shape[0]*old_points.shape[1],old_points.shape[2]))
+    old_points = order_points(old_points)
+    print(old_points)
+    # Define new points as a rectangle
+    new_points = np.array([old_points[0], [old_points[1,0], old_points[0,1]], [old_points[0,0], old_points[2,1]], [old_points[1,0], old_points[2,1]]], dtype=np.float32)
+    #we use the gradation points as the input points
+    #now we need the destination poirnts
+    rectified = rectify(img, np.float32(old_points), np.float32(new_points))
 
     return rectified
 
@@ -321,6 +314,63 @@ def rectify_video(input_video_path, output_video_path):
     # Release the VideoWriter object
     out.release()
 
+def rectify_video_by_gradation(input_video_path, output_video_path,threshold_condition):
+    '''USED COPILOT WITH PROMPT: I want a function which uses the following 
+    code to first pick points based on the first frame of some input video.
+    Next, we will use those points project onto ALL frames. 
+    The function will return the new projceted video and save it 
+    locally
+    '''
+    # Load the video
+    cap = cv2.VideoCapture(input_video_path)
+    if not cap.isOpened():
+        print("Error opening video file")
+        return
+
+    # Get the first frame
+    ret, first_frame = cap.read()
+    if not ret:
+        print("Error reading the first frame")
+        return
+
+    # Get the video properties
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    frames = []
+
+    load_points_lines = define_stakes(first_frame,2)
+
+    # Rectify and write each frame
+    try:
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if ret:
+                rectified = rectify_by_gradation(frame,2,100,100,threshold_condition, load_points_lines)
+                # Resize the rectified frame to match the original frame size
+                rectified_resized = cv2.resize(rectified, (frame_width, frame_height))
+                frames.append(rectified_resized)
+                cv2.imshow('Rectified Frame', rectified_resized)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            else:
+                break
+    finally:
+        # Release the VideoCapture and VideoWriter objects
+        cap.release()
+        cv2.destroyAllWindows()
+
+    #now we save frames as an mp4:
+    # Create a VideoWriter object
+    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
+
+    # Write the frames to the video file
+    for frame in frames:
+        out.write(frame)
+
+    # Release the VideoWriter object
+    out.release()
+
 if __name__ == '__main__':
     #get input image
     #img = cv2.imread('orthotest_frames/orthotest_frame_8.jpg')
@@ -332,20 +382,12 @@ if __name__ == '__main__':
     # rectified = rectify(img, old_points, new_points)
     # cv2.imshow('Rectified Image', rectified)
     # cv2.waitKey(0)
-
-    #rectify_video('pole_movement_1.MP4', 'rectified.mp4')
     #points, lines = define_stakes(img, 3)
 
-    # Load the video
-    cap = cv2.VideoCapture('gp4k_stakes.MP4')
-    # Get the first frame
-    ret, first_frame = cap.read()
+    threshold_condition = lambda x: np.sum(x,axis=1)<300
 
-    #example columns 
-    col1 = np.array([2,3,4,5,6,7,8,9,30,31,51,52,53,54,55])
-    col2 = np.array([6,7,8,9,20,21,38,39,40,41,42,43])
-    col3 = np.array([7,8,9,10,11,12,13,14,32,33,34,35,61,62,63,64,65,66,67,68])
+    rectify_video_by_gradation('gp1080p_newgrad.MP4', 'rectified.mp4',threshold_condition)
+    
 
-    print(find_difference_gradations([col1,col2,col3]))
 
     
