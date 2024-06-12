@@ -175,7 +175,7 @@ def linear_transform(points):
 
 
 
-def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshold_condition, load_points_lines = None):
+def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshold_condition = None, load_prev_grad = None):
     '''
     find gradated stakes and rectify image by size variation
 
@@ -189,29 +189,24 @@ def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshol
     spaced in real space. 
     '''
     #get points and lines
-    if load_points_lines == None:
+    if load_prev_grad is None:
         all_points, all_lines = define_stakes(img,n_stakes)
-    else: 
-        all_points, all_lines = load_points_lines
+        #find the points of the gradations: 
+        gradation_points = find_gradations(img,all_lines,threshold_condition)
+        gradation_points = np.squeeze(gradation_points)
+        old_points = np.flip(gradation_points, axis = 2)
+        old_points = old_points.reshape((old_points.shape[0]*old_points.shape[1],old_points.shape[2]))
+        old_points = order_points(old_points)
+    else:
+        old_points = load_prev_grad
 
-    #find the points of the gradations: 
-    gradation_points = find_gradations(img,all_lines,threshold_condition)
-    gradation_points = np.squeeze(gradation_points)
-    #get linear functions for transformation: 
-    
-    print(gradation_points)
-    old_points = np.flip(gradation_points, axis = 2)
-    print(old_points.shape)
-    old_points = old_points.reshape((old_points.shape[0]*old_points.shape[1],old_points.shape[2]))
-    old_points = order_points(old_points)
-    print(old_points)
     # Define new points as a rectangle
     new_points = np.array([old_points[0], [old_points[1,0], old_points[0,1]], [old_points[0,0], old_points[2,1]], [old_points[1,0], old_points[2,1]]], dtype=np.float32)
     #we use the gradation points as the input points
     #now we need the destination poirnts
     rectified = rectify(img, np.float32(old_points), np.float32(new_points))
-
-    return rectified
+    print(rectified.shape)
+    return rectified, old_points
 
 def define_stakes(img, n_stakes):
     '''
@@ -329,6 +324,7 @@ def rectify_video_by_gradation(input_video_path, output_video_path,threshold_con
 
     # Get the first frame
     ret, first_frame = cap.read()
+    rectified, gradation_pts = rectify_by_gradation(first_frame,2,100,100,threshold_condition)
     if not ret:
         print("Error reading the first frame")
         return
@@ -336,21 +332,21 @@ def rectify_video_by_gradation(input_video_path, output_video_path,threshold_con
     # Get the video properties
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(frame_width,frame_height)
     fps = cap.get(cv2.CAP_PROP_FPS)
     frames = []
-
-    load_points_lines = define_stakes(first_frame,2)
 
     # Rectify and write each frame
     try:
         while cap.isOpened():
             ret, frame = cap.read()
             if ret:
-                rectified = rectify_by_gradation(frame,2,100,100,threshold_condition, load_points_lines)
-                # Resize the rectified frame to match the original frame size
-                rectified_resized = cv2.resize(rectified, (frame_width, frame_height))
-                frames.append(rectified_resized)
-                cv2.imshow('Rectified Frame', rectified_resized)
+                rectified, old_points = rectify_by_gradation(frame,2,100,100, load_prev_grad = gradation_pts)
+                if rectified.shape != (frame_width,frame_height,3):
+                    # Resize the rectified frame to match the original frame size
+                    rectified = cv2.resize(rectified, (frame_width, frame_height))
+                frames.append(rectified)
+                cv2.imshow('Rectified Frame', rectified)
                 if cv2.waitKey(1) & 0xFF == ord('q'):
                     break
             else:
@@ -386,7 +382,7 @@ if __name__ == '__main__':
 
     threshold_condition = lambda x: np.sum(x,axis=1)<300
 
-    rectify_video_by_gradation('gp1080p_newgrad.MP4', 'rectified.mp4',threshold_condition)
+    rectify_video_by_gradation('gp1080p_noodle_float_move.MP4', 'noodle_float_move_rect.mp4',threshold_condition)
     
 
 

@@ -8,23 +8,21 @@ import numpy as np
 import datetime
 from matplotlib import pyplot as plt
 
-def find_centers(floats):
+def find_centers(contours):
     centers = []
-    for float_contour in floats:
-        # Calculate the moments of the contour
-        M = cv2.moments(float_contour)
-        # Calculate the center of the contour
-        center_x = int(M["m10"] / M["m00"])
-        center_y = int(M["m01"] / M["m00"])
-        center = (center_x, center_y)
-        centers.append(center)
-    return np.array(centers)
+    for contour in contours:
+        M = cv2.moments(contour)
+        if M["m00"] != 0:  # Check if the contour is not empty
+            center_x = int(M["m10"] / M["m00"])
+            center_y = int(M["m01"] / M["m00"])
+            centers.append([center_x, center_y])
+    return centers
 
 
-def video_to_waveform(rectified_video, graph_dest, arr_dest,ppm, color_low, color_high, roi, candidate_function, n_stakes):
+def video_to_waveform(rectified_video, graph_dest, arr_dest,ppm, color_low, color_high, candidate_function, n_stakes):
     '''
     input: 
-    rectified_video: filepath to rectified video (first frame must have unobstructed view of all floats and stakes)
+    rectified_video: filepath to rectified video (first two frames must have unobstructed view of all floats and stakes)
     num_stakes: number of stakes in the video
     graph_dest: filepath to write images representing each wave
     arr_dest: filepath to write array representing each wave
@@ -62,27 +60,32 @@ def video_to_waveform(rectified_video, graph_dest, arr_dest,ppm, color_low, colo
         
         #look for num_stakes floats
         #now we make object detection of the roi of the mask
+        roi = cv2.bitwise_and(frame, frame, mask=mask)
         mask = object_detector.apply(roi)
         _, mask = cv2.threshold(mask, 254, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         #contours are our 'found objects'
-        contours = np.array(contours)
         #iterate through each contour: can vectorize?
-        scores = np.zeros((contours.shape[0],))
+        scores = np.zeros((len(contours),))
         for i, cont in enumerate(contours): 
-            #assign each a score using the candidate function
-            score = candidate_function(cont)
-            scores[i] = score
-            #put positions into relevent arrays for storing the positions of each float
+            area = cv2.contourArea(cont)
+            if area>50:
+                # Assign each a score using the candidate function
+                score = candidate_function(cont, hsv, color_low, color_high)
+                scores[i] = score
         #find the best scores by getting the top n_stakes scores
+        
         ind = np.argpartition(scores, -n_stakes)[-n_stakes:]
         #now get those contours:
-        floats = contours[ind]
+        floats = np.array(contours, dtype = object)[ind]
         # Call the function in the main code
         positions.append(find_centers(floats))
+        print('frame complete')
     #now positions should be filled out:
     #convert the positions to an array for easier everything
     positions = np.array(positions)
+    #order positions from left to right
+    positions = positions[np.argsort(positions[:, :, 0])]#might not be right
     #we only care about offset for for each set of positions, we subtract the mean
     centered_positions = positions-np.mean(positions, axis = 1)
     #using the ppm, convert from pixel space to real space
@@ -100,8 +103,36 @@ def video_to_waveform(rectified_video, graph_dest, arr_dest,ppm, color_low, colo
         plt.xlabel('Frame')
         plt.ylabel('Position')
         plt.title('Waveform for Float {}'.format(i+1))
-        plt.savefig(graph_dest + '/waveform_float_{}.png'.format(i+1))
+        plt.savefig(graph_dest + '/waveform_float_{}'+current_time+'.svg'.format(i+1))
         plt.close()
     
+def candidate_score(contour, hsv, light_green_low, light_green_high):
+    # Create a black image to draw the contour on
+    mask = np.zeros(hsv.shape[:2], dtype=np.uint8)
+    mask = cv2.drawContours(mask, [contour], -1, (255), thickness=cv2.FILLED)
 
+    # Calculate the color score as the percentage of pixels in the contour that are light green
+    contour_hsv = cv2.bitwise_and(hsv, hsv, mask=mask)
+    light_green_pixels = cv2.inRange(contour_hsv, light_green_low, light_green_high)
 
+    color_score = cv2.countNonZero(light_green_pixels) / float(cv2.countNonZero(mask))
+    # Approximate the contour to a polygon
+    epsilon = 0.02 * cv2.arcLength(contour, True)
+    approx = cv2.approxPolyDP(contour, epsilon, True)
+
+    # Calculate the shape score as the percentage of vertices that form a rectangle
+    shape_score = len(approx) / 4 if len(approx) <= 4 else 0
+    print(shape_score)
+
+    # Combine the color and shape scores
+    score = color_score * shape_score
+
+    return score
+
+if __name__ == "__main__":
+
+    # Define lower and upper bounds for "light green" in HSV
+    light_green_low = np.array([35, 50, 70], dtype=np.uint8)
+    light_green_high = np.array([85, 255, 250], dtype=np.uint8)
+
+    video_to_waveform('noodle_float_move_rect.mp4','','',0.2,light_green_low,light_green_high,candidate_score, 2)
