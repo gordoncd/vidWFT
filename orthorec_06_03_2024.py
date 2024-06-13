@@ -382,7 +382,7 @@ if __name__ == '__main__':
 
     threshold_condition = lambda x: np.sum(x,axis=1)<300
 
-    rectify_video_by_gradation('gp1080p_noodle_float_move.MP4', 'noodle_float_move_rect.mp4',threshold_condition)
+    rectify_video_by_gradation('videos/noodle_float_move_rect.mp4', 'noodle_float_move_rect.mp4',threshold_condition)
     
 
 
