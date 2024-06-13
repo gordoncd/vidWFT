@@ -134,7 +134,6 @@ def find_gradations(img, lines, threshold_condition):
         gradation_idx = np.argwhere(threshold_condition(pixels))
         #find the midpoint of the two biggest groups
         gradation_idx = np.squeeze(gradation_idx)
-        print(gradation_idx.shape)
         first, second = two_largest(gradation_idx)
         #first and second are sets, so we get their average value and just get the int of that up to half a pixel of error introduced here
         mid1 = int(sum(first)/len(first))
@@ -205,7 +204,6 @@ def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshol
     #we use the gradation points as the input points
     #now we need the destination poirnts
     rectified = rectify(img, np.float32(old_points), np.float32(new_points))
-    print(rectified.shape)
     return rectified, old_points
 
 def define_stakes(img, n_stakes):
@@ -309,7 +307,7 @@ def rectify_video(input_video_path, output_video_path):
     # Release the VideoWriter object
     out.release()
 
-def rectify_video_by_gradation(input_video_path, output_video_path,threshold_condition):
+def rectify_video_by_gradation(input_video_path, output_video_path,threshold_condition,show):
     '''USED COPILOT WITH PROMPT: I want a function which uses the following 
     code to first pick points based on the first frame of some input video.
     Next, we will use those points project onto ALL frames. 
@@ -325,6 +323,8 @@ def rectify_video_by_gradation(input_video_path, output_video_path,threshold_con
     # Get the first frame
     ret, first_frame = cap.read()
     rectified, gradation_pts = rectify_by_gradation(first_frame,2,100,100,threshold_condition)
+    cv2.waitKey(1)
+    cv2.destroyAllWindows()
     if not ret:
         print("Error reading the first frame")
         return
@@ -332,7 +332,6 @@ def rectify_video_by_gradation(input_video_path, output_video_path,threshold_con
     # Get the video properties
     frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    print(frame_width,frame_height)
     fps = cap.get(cv2.CAP_PROP_FPS)
     frames = []
 
@@ -346,9 +345,10 @@ def rectify_video_by_gradation(input_video_path, output_video_path,threshold_con
                     # Resize the rectified frame to match the original frame size
                     rectified = cv2.resize(rectified, (frame_width, frame_height))
                 frames.append(rectified)
-                cv2.imshow('Rectified Frame', rectified)
-                if cv2.waitKey(1) & 0xFF == ord('q'):
-                    break
+                if show:
+                    cv2.imshow('Rectified Frame', rectified)
+                    if cv2.waitKey(1) & 0xFF == ord('q'):
+                        break
             else:
                 break
     finally:

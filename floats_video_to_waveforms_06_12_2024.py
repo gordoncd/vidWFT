@@ -1,11 +1,12 @@
 import cv2 
 import numpy as np
 import matplotlib.pyplot as plt
+import orthorec_06_03_2024 as orth
 
 
-def floats_video_to_waveform(rectified_video_path, ppm, num_stakes, 
+def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes, 
                              arr_out_path = 'wave_measurements.npy',
-                             graph_out_path = 'position_graphs.png'):
+                             graph_out_path = 'position_graphs.png', show= True):
     # Load the video
     cap = cv2.VideoCapture(rectified_video_path)
 
@@ -19,6 +20,8 @@ def floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
     trackers = []
     for i in range(num_stakes):
         roi = cv2.selectROI(frame, False)
+        cv2.waitKey(1)
+        cv2.destroyAllWindows()
         tracker = cv2.legacy_TrackerCSRT.create()
         trackers.append(tracker)
         ret = tracker.init(frame, roi)
@@ -51,16 +54,16 @@ def floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
                 to the one we have been tracking we do this in a vertical 
                 column around where we lost the object since we are really 
                 only concerned with that type of movement'''
-
+            
                 cv2.putText(frame, "Tracking failure detected", (100, 80), 
                             cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+        if show:
+            # Display the resulting frame
+            cv2.imshow('Tracking', frame)
 
-        # Display the resulting frame
-        cv2.imshow('Tracking', frame)
-
-        # Exit if ESC key is pressed
-        if cv2.waitKey(1) & 0xFF == 27:
-            break
+            # Exit if ESC key is pressed
+            if cv2.waitKey(1) & 0xFF == 27:
+                break
 
     # Release the video capture and close all windows
     cap.release()
@@ -75,11 +78,30 @@ def floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
         name = 'stake'+str(i)
         plt.plot(position[:,i,1],label = name)
     plt.xlabel('Time')
-    plt.ylabel('Coordinates')
+    plt.ylabel('Position (m)')
     plt.legend()
     fig.savefig(graph_out_path)
 
     np.save(arr_out_path,position)
+    return position
+
+def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path, 
+                            arr_out_path = 'wave_measurements.npy',
+                            graph_out_path = 'position_graphs.png', 
+                            threshold_condition = lambda x: np.sum(x,axis=1)<300,
+                            show = True):
+    #first we rectify our image:
+    orth.rectify_video_by_gradation(video_path,rect_path, threshold_condition,show)
+    return rect_floats_video_to_waveform(rect_path, ppm, num_stakes, arr_out_path, 
+                             graph_out_path,show)
 
 if __name__ == '__main__':
-    floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
+    # floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
+
+    unrectified_path = 'videos/gp1080p_noodle_float_move.MP4'
+    ppm = 750
+    num_stakes = 2
+    rect_path = 'videos/rectified_case.mp4'
+
+    unrectified_to_rect_to_waveform(unrectified_path, ppm, num_stakes, rect_path,
+                                     show = False)
