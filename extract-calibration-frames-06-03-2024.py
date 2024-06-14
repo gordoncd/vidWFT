@@ -1,3 +1,17 @@
+'''
+This file has function extract_calibration_frames which randomly
+samples frames from an input video and returns them as np arrays
+
+the __name__ __main__ part of the file sends some frames from a calibration video to a folder 
+so that each file has path orthotest_frames/orthotest_frame{i} where i is the order in which it was selected
+
+Author: Gordon Doore
+Created: 06/03/2024
+
+Last Modified: 06/04/2024
+
+'''
+
 import numpy as np
 import cv2
 def extract_calibration_frames(filepath, nframes):

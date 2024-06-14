@@ -1,7 +1,19 @@
+'''
+This file contains function for converting videos to waveforms
+NOTE: This script does NOT apply intrinsic matrices of the camera 
+to adjust for distortion
+
+Author: Gordon Doore
+Created: 06/12/2024
+
+Last Modified: 06/14/2024
+
+'''
 import cv2 
 import numpy as np
 import matplotlib.pyplot as plt
 import orthorec_06_03_2024 as orth
+from concurrent.futures import ThreadPoolExecutor
 
 
 def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes, 
@@ -29,6 +41,21 @@ def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
 
     position = np.zeros((total_frames, num_stakes,2))
 
+    def update_tracker(args):
+        i,tracker = args
+        ret, roi = tracker.update(frame)
+        if ret:
+            (x, y, w, h) = tuple(map(int, roi))
+            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+            #record the position of the center of the box 
+            center_x = x + w // 2
+            center_y = y + h // 2
+            return (i, (center_x, center_y))
+        else:
+            cv2.putText(frame, "Tracking failure detected", (100, 80), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+            return None
+
     while True:
         # Read a new frame
         ret, frame = cap.read()
@@ -37,26 +64,11 @@ def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
         #get current frame number:
         current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))-1
         # Update each tracker
-        for i,tracker in enumerate(trackers):
-            ret, roi = tracker.update(frame)
-
-            # Draw the ROI on the frame
-            if ret:
-                (x, y, w, h) = tuple(map(int, roi))
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-                #record the positoin of the center of the box 
-                center_x = x + w // 2
-                center_y = y + h // 2
-                position[current_frame,i] = [center_x,center_y]
-            else:
-                '''Tracking failure
-                when tracking failure occurs, we search for objects similar 
-                to the one we have been tracking we do this in a vertical 
-                column around where we lost the object since we are really 
-                only concerned with that type of movement'''
-            
-                cv2.putText(frame, "Tracking failure detected", (100, 80), 
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+        with ThreadPoolExecutor() as executor:
+            positions = executor.map(update_tracker, enumerate(trackers))
+        for pos in positions:
+            if pos is not None:
+                position[current_frame, pos[0]] = pos[1]
         if show:
             # Display the resulting frame
             cv2.imshow('Tracking', frame)
@@ -104,4 +116,4 @@ if __name__ == '__main__':
     rect_path = 'videos/rectified_case.mp4'
 
     unrectified_to_rect_to_waveform(unrectified_path, ppm, num_stakes, rect_path,
-                                     show = False)
+                                     show = True)
