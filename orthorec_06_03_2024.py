@@ -207,13 +207,20 @@ def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshol
     return rectified, old_points
 
 def define_stakes(img, n_stakes):
-    '''
+    """
     user draws lines on images for n_stakes
     returns pixel columns and stake coordinates
 
     assume stakes are straight lines,
     use only 2 points per stake
-    '''
+
+    Args: 
+        img: ndarray
+            numPy array represetning the image to define stakes on,
+            usually a selected frame from video
+        n_stakes: int
+            number of stakes to 
+    """
     def onclick(event):
         if event.inaxes is not None:
             chosen_points.append((event.xdata, event.ydata))
@@ -251,6 +258,16 @@ def rectify_video(input_video_path, output_video_path):
     Next, we will use those points project onto ALL frames. 
     The function will return the new projceted video and save it 
     locally
+    
+    Rectify a video by gradations
+
+    Args:
+        input_video_path: string
+            The path to the unrectified video
+        output_video_path: string
+            The path to where the rectified video should go
+
+    
     '''
     # Load the video
     cap = cv2.VideoCapture(input_video_path)
@@ -308,11 +325,18 @@ def rectify_video(input_video_path, output_video_path):
     out.release()
 
 def rectify_video_by_gradation(input_video_path, output_video_path,threshold_condition,show):
-    '''USED COPILOT WITH PROMPT: I want a function which uses the following 
-    code to first pick points based on the first frame of some input video.
-    Next, we will use those points project onto ALL frames. 
-    The function will return the new projceted video and save it 
-    locally
+    '''
+    Rectify a video by gradations
+
+    Args:
+        input_video_path (str): The path to the unrectified video
+        output_video_path (str): The path to where the rectified video should go
+        threshold_condition (func): function whcih returns binary or boolean array of the same size as its input
+        show (bool): whether or not to show the rectified video during computation
+
+    Returns: 
+        None
+
     '''
     # Load the video
     cap = cv2.VideoCapture(input_video_path)
@@ -382,7 +406,7 @@ if __name__ == '__main__':
 
     threshold_condition = lambda x: np.sum(x,axis=1)<300
 
-    rectify_video_by_gradation('videos/noodle_float_move_rect.mp4', 'noodle_float_move_rect.mp4',threshold_condition)
+    rectify_video_by_gradation('videos/gp1080p_noodle_float_move.mp4', 'noodle_float_move_rect2.mp4',threshold_condition, show = False)
     
 
 

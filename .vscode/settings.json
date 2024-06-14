@@ -1,0 +1,5 @@
+{
+    "autopep8.args": [
+        "[\"orthorec_06_03_2024.py\",\"video_to_waveform.py\",\"floats_video_to_waveforms_06_12_2024.py\"]"
+    ]
+}
