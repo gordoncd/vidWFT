@@ -19,6 +19,21 @@ from concurrent.futures import ThreadPoolExecutor
 def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes, 
                              arr_out_path = 'wave_measurements.npy',
                              graph_out_path = 'position_graphs.png', show= True):
+    '''
+    Converts a rectified video of floating objects to waveforms.
+    
+    Parameters:
+    rectified_video_path (str): The path to the rectified video file.
+    ppm (float): The pixels per meter conversion factor.
+    num_stakes (int): The number of floating objects to track.
+    arr_out_path (str, optional): The output path for the waveform measurements array. Defaults to 'wave_measurements.npy'.
+    graph_out_path (str, optional): The output path for the position graphs. Defaults to 'position_graphs.png'.
+    show (bool, optional): Whether to display the tracking frames. Defaults to True.
+    
+    Returns:
+    numpy.ndarray: The waveform measurements array.
+    '''
+    
     # Load the video
     cap = cv2.VideoCapture(rectified_video_path)
 
@@ -102,6 +117,20 @@ def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path,
                             graph_out_path = 'position_graphs.png', 
                             threshold_condition = lambda x: np.sum(x,axis=1)<300,
                             show = True):
+    '''Converts an unrectified video of floating objects to waveforms.
+    
+    Parameters:
+    video_path (str): The path to the rectified video file.
+    ppm (float): The pixels per meter conversion factor.
+    num_stakes (int): The number of floating objects to track.
+    arr_out_path (str, optional): The output path for the waveform measurements array. Defaults to 'wave_measurements.npy'.
+    graph_out_path (str, optional): The output path for the position graphs. Defaults to 'position_graphs.png'.
+    threshold_condition (function): Function that is applied to ndarray which threhsolds based on some intrinsic value
+    show (bool, optional): Whether to display the tracking frames. Defaults to True.
+    
+    Returns:
+    numpy.ndarray: The waveform measurements array.
+    '''
     #first we rectify our image:
     orth.rectify_video_by_gradation(video_path,rect_path, threshold_condition,show)
     return rect_floats_video_to_waveform(rect_path, ppm, num_stakes, arr_out_path, 
