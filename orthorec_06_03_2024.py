@@ -220,6 +220,13 @@ def define_stakes(img, n_stakes):
             usually a selected frame from video
         n_stakes: int
             number of stakes to 
+
+    Returns: 
+        all_points: ndarray
+            coordinates for each stake
+            in the form [[[s1x1,s1y1],[s1x2,s1y2]],...]
+        all_lines: ndarray
+            line computed using skimage.draw.line over the points in all_points
     """
     def onclick(event):
         if event.inaxes is not None:

@@ -136,10 +136,29 @@ def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path,
     return rect_floats_video_to_waveform(rect_path, ppm, num_stakes, arr_out_path, 
                              graph_out_path,show)
 
+
+def unrectified_to_waveform(video_path, num_stakes, threshold_condition, show = True):
+    '''
+    
+    '''
+    
+    #load in video:
+    cap = cv2.VideoCapture(video_path)
+
+    # Read the first frame
+    ret, frame = cap.read()
+
+    #get the total frames:
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    #next, we extract the points of the gradations for n_stakes
+    #for now we have the user select these points.
+    all_points, all_lines = orth.define_stakes(frame,num_stakes)
+
 if __name__ == '__main__':
     # floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
 
-    unrectified_path = 'videos/gp1080p_noodle_float_move.MP4'
+    unrectified_path = 'videos/floats_perp_5k_none.MP4'
     ppm = 750
     num_stakes = 2
     rect_path = 'videos/rectified_case.mp4'
