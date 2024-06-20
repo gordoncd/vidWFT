@@ -34,67 +34,7 @@ def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
     numpy.ndarray: The waveform measurements array.
     '''
     
-    # Load the video
-    cap = cv2.VideoCapture(rectified_video_path)
-
-    # Read the first frame
-    ret, frame = cap.read()
-
-    #get the total frames:
-    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-
-    # Create a tracker object
-    trackers = []
-    for i in range(num_stakes):
-        roi = cv2.selectROI(frame, False)
-        cv2.waitKey(1)
-        cv2.destroyAllWindows()
-        tracker = cv2.legacy_TrackerCSRT.create()
-        trackers.append(tracker)
-        ret = tracker.init(frame, roi)
-    # Initialize the tracker
-
-    position = np.zeros((total_frames, num_stakes,2))
-
-    def update_tracker(args):
-        i,tracker = args
-        ret, roi = tracker.update(frame)
-        if ret:
-            (x, y, w, h) = tuple(map(int, roi))
-            cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-            #record the position of the center of the box 
-            center_x = x + w // 2
-            center_y = y + h // 2
-            return (i, (center_x, center_y))
-        else:
-            cv2.putText(frame, "Tracking failure detected", (100, 80), 
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-            return None
-
-    while True:
-        # Read a new frame
-        ret, frame = cap.read()
-        if not ret:
-            break
-        #get current frame number:
-        current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES))-1
-        # Update each tracker
-        with ThreadPoolExecutor() as executor:
-            positions = executor.map(update_tracker, enumerate(trackers))
-        for pos in positions:
-            if pos is not None:
-                position[current_frame, pos[0]] = pos[1]
-        if show:
-            # Display the resulting frame
-            cv2.imshow('Tracking', frame)
-
-            # Exit if ESC key is pressed
-            if cv2.waitKey(1) & 0xFF == 27:
-                break
-
-    # Release the video capture and close all windows
-    cap.release()
-    cv2.destroyAllWindows()
+    position = track_objects_in_video(rectified_video_path,num_stakes, show = show)
 
     #convert position to real units: 
     position = position/ppm
@@ -136,8 +76,60 @@ def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path,
     return rect_floats_video_to_waveform(rect_path, ppm, num_stakes, arr_out_path, 
                              graph_out_path,show)
 
+def track_objects_in_video(cap, num_stakes, show=False):
+    """
+    Tracks objects in a video.
 
-def unrectified_to_waveform(video_path, num_stakes, threshold_condition, show = True):
+    Args:
+        video_path (str): Path to the video file.
+        num_stakes (int): Number of objects to track.
+        show (bool): If True, display the tracking process in real-time.
+
+    Returns:
+        np.ndarray: An array containing the positions of the tracked objects.
+    """
+
+    ret, frame = cap.read()
+    if not ret:
+        print("Error: Could not read video frame.")
+        return
+
+    trackers = []
+    for i in range(num_stakes):
+        roi = cv2.selectROI("Select ROI", frame, False)
+        cv2.waitKey(1)
+        cv2.destroyAllWindows()
+        tracker = cv2.legacy_TrackerCSRT.create()
+        trackers.append(tracker)
+        tracker.init(frame, roi)
+
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    print(total_frames)
+    position = np.zeros((total_frames, num_stakes, 2))
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+
+        for i, tracker in enumerate(trackers):
+            success, bbox = tracker.update(frame)
+            if success:
+                position[current_frame, i] = (bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2)  # Store the center position
+                #draw bounding box on current_frame
+                cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3])), (0, 0, 255), 2)
+    
+        if show:
+            cv2.imshow('Tracking', frame)
+            if cv2.waitKey(1) & 0xFF == 27:  # ESC key to break
+                break
+
+    cap.release()
+    cv2.destroyAllWindows()
+    return position
+
+def unrectified_to_waveform(video_path, num_stakes, show = True):
     '''
     
     '''
@@ -154,14 +146,40 @@ def unrectified_to_waveform(video_path, num_stakes, threshold_condition, show = 
     #next, we extract the points of the gradations for n_stakes
     #for now we have the user select these points.
     all_points, all_lines = orth.define_stakes(frame,num_stakes)
+    all_points = np.array(all_points)
+    #assuming the user chooses points corresponding to the gradations
+    #we use this to save the ppm for each stake:
+    ppm = np.linalg.norm(all_points[:,0]-all_points[:,1],axis = 1)
+    
+    #after getting ppm, track each stake in the input space:
+    
+    positions = track_objects_in_video(cap, num_stakes, show = show)
 
+    #apply derived ppm to the positions: 
+    positions = positions/ppm#not sure if the axis work out written like this
+
+    #save array
+    return positions
+
+    
 if __name__ == '__main__':
     # floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
 
-    unrectified_path = 'videos/floats_perp_5k_none.MP4'
-    ppm = 750
+    unrectified_path = 'videos/test_vid1.mp4'
+    ppm = 375
     num_stakes = 2
     rect_path = 'videos/rectified_case.mp4'
 
-    unrectified_to_rect_to_waveform(unrectified_path, ppm, num_stakes, rect_path,
-                                     show = True)
+    positions = unrectified_to_waveform(unrectified_path, num_stakes, show = True)
+
+    # Plot the y coordinates through time
+    fig = plt.figure()
+    for i in range(num_stakes):
+        name = 'stake'+str(i)
+        plt.plot(positions[2:,i,1],label = name)
+    plt.xlabel('Time')
+    plt.ylabel('Position (m)')
+    plt.legend()
+    fig.savefig('graph.png')
+
+    np.save('array.npy',positions[2:])

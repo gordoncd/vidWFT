@@ -222,39 +222,45 @@ def define_stakes(img, n_stakes):
             number of stakes to 
 
     Returns: 
-        all_points: ndarray
+        all_points: list
             coordinates for each stake
             in the form [[[s1x1,s1y1],[s1x2,s1y2]],...]
-        all_lines: ndarray
+        all_lines: list of ndarray
             line computed using skimage.draw.line over the points in all_points
     """
     def onclick(event):
-        if event.inaxes is not None:
+        # Check if the toolbar's current tool is 'zoom' or 'pan'
+        current_tool = plt.get_current_fig_manager().toolbar.mode
+        if event.inaxes is not None and current_tool == '':
             chosen_points.append((event.xdata, event.ydata))
             print(f"Point picked: ({event.xdata},{event.ydata})")
-            # Assuming 'img' is your image and 'event.xdata' and 'event.ydata' are the coordinates
-            rgb_img[int(event.ydata), int(event.xdata)] = [255, 0, 0]  # Change the pixel to red
+            ax.plot(event.xdata, event.ydata, 'ro')
+            fig.canvas.draw()
+            plt.show()
             if len(chosen_points) == 2:
                 print("All points for this stake picked.")
                 plt.close()  # Close the figure once all points are picked
 
-
+    # Convert the image to RGB for display
     rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    all_points=[]
+    all_points = []
     all_lines = []
+
     for n in range(n_stakes):
-        print("Stake number: "+str(n))
+        print("Stake number:", n)
         chosen_points = []
         fig, ax = plt.subplots()
         ax.imshow(rgb_img)
         fig.canvas.mpl_connect('button_press_event', onclick)
+        plt.title("Zoom in as needed and select 2 points. Close the window when done.")
         plt.show()
 
-        # Use skimage to get the points on the line
-        line_points = skimage.draw.line(int(chosen_points[0][0]), int(chosen_points[0][1]), int(chosen_points[1][0]), int(chosen_points[1][1]))
-        all_points.append(chosen_points)
-        all_lines.append(line_points)
-                
+        if len(chosen_points) == 2:
+            # Use skimage to get the points on the line between the selected points
+            line_points = skimage.draw.line(int(chosen_points[0][1]), int(chosen_points[0][0]),
+                                            int(chosen_points[1][1]), int(chosen_points[1][0]))
+            all_points.append(chosen_points)
+            all_lines.append(line_points)
 
     return all_points, all_lines
 
@@ -413,7 +419,7 @@ if __name__ == '__main__':
 
     threshold_condition = lambda x: np.sum(x,axis=1)<300
 
-    rectify_video_by_gradation('videos/gp1080p_noodle_float_move.mp4', 'noodle_float_move_rect2.mp4',threshold_condition, show = False)
+    rectify_video_by_gradation('videos/gp1080p_noodle_float_move.mp4', 'noodle_float_move_rect2.mp4',threshold_condition, show = True)
     
 
 
