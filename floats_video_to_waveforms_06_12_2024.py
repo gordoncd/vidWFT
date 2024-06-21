@@ -76,7 +76,7 @@ def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path,
     return rect_floats_video_to_waveform(rect_path, ppm, num_stakes, arr_out_path, 
                              graph_out_path,show)
 
-def track_objects_in_video(cap, num_stakes, show=False):
+def track_objects_in_video(cap, num_stakes, show=False, track_every = 1):
     """
     Tracks objects in a video.
 
@@ -104,7 +104,6 @@ def track_objects_in_video(cap, num_stakes, show=False):
         tracker.init(frame, roi)
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    print(total_frames)
     position = np.zeros((total_frames, num_stakes, 2))
 
     while True:
@@ -112,13 +111,15 @@ def track_objects_in_video(cap, num_stakes, show=False):
         if not ret:
             break
         current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
-
+        if current_frame%track_every != 0:
+            continue
         for i, tracker in enumerate(trackers):
             success, bbox = tracker.update(frame)
             if success:
-                position[current_frame, i] = (bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2)  # Store the center position
-                #draw bounding box on current_frame
-                cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3])), (0, 0, 255), 2)
+                position[current_frame, i] = bbox[0] + bbox[2] / 2, bbox[1] + bbox[3] / 2 # Store the center position
+                if show:
+                    #draw bounding box on current_frame
+                    cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3])), (0, 0, 255), 2)
     
         if show:
             cv2.imshow('Tracking', frame)
@@ -129,7 +130,7 @@ def track_objects_in_video(cap, num_stakes, show=False):
     cv2.destroyAllWindows()
     return position
 
-def unrectified_to_waveform(video_path, num_stakes, show = True):
+def unrectified_to_waveform(video_path, num_stakes, track_every, show = True):
     '''
     
     '''
@@ -153,33 +154,36 @@ def unrectified_to_waveform(video_path, num_stakes, show = True):
     
     #after getting ppm, track each stake in the input space:
     
-    positions = track_objects_in_video(cap, num_stakes, show = show)
+    positions = track_objects_in_video(cap, num_stakes, show = show, track_every = track_every)
 
     #apply derived ppm to the positions: 
     positions = positions/ppm#not sure if the axis work out written like this
 
     #save array
-    return positions
+    return positions,ppm
 
     
 if __name__ == '__main__':
     # floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
 
-    unrectified_path = 'videos/test_vid1.mp4'
-    ppm = 375
+    # unrectified_path = 'videos/floats_perp_4k_none.MP4'
+    unrectified_path = 'videos/floats_R3yel_4k_uv.MP4'
     num_stakes = 2
     rect_path = 'videos/rectified_case.mp4'
 
-    positions = unrectified_to_waveform(unrectified_path, num_stakes, show = True)
-
+    positions,ppm = unrectified_to_waveform(unrectified_path, num_stakes, show = True, track_every = 5)
+    print(positions)
+    print(type(positions))
+    print(ppm)
+    framerate = 30
     # Plot the y coordinates through time
     fig = plt.figure()
     for i in range(num_stakes):
-        name = 'stake'+str(i)
-        plt.plot(positions[2:,i,1],label = name)
+        name = 'stake '+str(i)
+        plt.plot(np.arange(positions[2:,i,1].shape[0])/framerate,positions[2:,i,1],label = name)
     plt.xlabel('Time')
-    plt.ylabel('Position (m)')
+    plt.ylabel('Position')
     plt.legend()
-    fig.savefig('graph.png')
+    fig.savefig('graph1.png')
 
-    np.save('array.npy',positions[2:])
+    np.save('array2.npy',positions[2:])
