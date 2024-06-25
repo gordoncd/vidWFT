@@ -175,7 +175,7 @@ if __name__ == '__main__':
     print(positions)
     print(type(positions))
     print(ppm)
-    framerate = 30
+    framerate = 30 
     # Plot the y coordinates through time
     fig = plt.figure()
     for i in range(num_stakes):
