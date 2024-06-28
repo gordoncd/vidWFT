@@ -257,7 +257,7 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
 
 def load_camera_calibration_data(matrix_path : str, distance_coefficient_path : str) -> tuple[np.ndarray]:
     '''
-    load calibration matrices. Helper function for `test_raw_video_to_waveform`
+    load calibration matrices. Helper function for `test_raw_video_to_waveform()`
 
     Args:
         matrix_path (str): path to camera calibration matrix
@@ -271,7 +271,7 @@ def load_camera_calibration_data(matrix_path : str, distance_coefficient_path : 
 
 def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coefficient_path : str, num_stakes: int, track_every : int, show : bool, save_cal : bool) ->np.ndarray:
     '''
-    test for raw_video_to_waveform() gets calibration data and runs the calibration/waveform function
+    test for `raw_video_to_waveform()` gets calibration data and runs the calibration/waveform function
 
     Args:
         video_path (str): path to unrectified video to be processed
