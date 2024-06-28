@@ -77,7 +77,9 @@ def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path,
                              graph_out_path,show)
 
 def tracker_init(frame, num_stakes):
-
+    '''
+    
+    '''
     trackers = []
     for i in range(num_stakes):
         roi = cv2.selectROI("Select ROI", frame, False)
@@ -89,6 +91,9 @@ def tracker_init(frame, num_stakes):
     return trackers
 
 def trackers_update(trackers,frame, cur_frame_num, position,show = True):
+    '''
+    
+    '''
     for i, tracker in enumerate(trackers):
         success, bbox = tracker.update(frame)
         if success:
@@ -101,7 +106,7 @@ def trackers_update(trackers,frame, cur_frame_num, position,show = True):
 
 def track_objects_in_video(cap, num_stakes, show=False, track_every = 1):
     """
-    Tracks objects in a video.
+    Tracks objects in a video using cv2 object tracker.
 
     Args:
         video_path (str): Path to the video file.
@@ -137,6 +142,17 @@ def track_objects_in_video(cap, num_stakes, show=False, track_every = 1):
 
 def unrectified_to_waveform(video_path, num_stakes, track_every, show = True):
     '''
+
+    Args:
+        video_path (str): path to unrectified video to be processed
+        num_stakes (int): number of stakes to be tracked in video
+        track_every (int): frequency to track object movement
+        show (bool): whether or not to show video while tracking
+
+    
+    Returns: 
+        positions (np.ndarray): positions of tracked floats over the input video 
+        ppm (np.ndarray): pixel to meter coefficients for at each stake
     
     '''
     
@@ -168,7 +184,18 @@ def unrectified_to_waveform(video_path, num_stakes, track_every, show = True):
     return positions,ppm
 
 def raw_video_to_waveform(video_path, calibration_data, num_stakes, track_every, show = True, save_cal = False):
+    '''
+    Args:
+        video_path (str): path to unrectified video to be processed
+        calibration_data (tuple): tuple of ndarrays (matrix_data, dist_data)
+        num_stakes (int): number of stakes to be tracked in video
+        track_every (int): frequency to track object movement
+        show (bool): whether or not to show video while tracking
+        save_cal (bool): whether or not to save calibrated video
 
+    Returns: 
+        positions (np.ndarray): positions of tracked floats over the input video 
+    '''
     #open video 
     cap = cv2.VideoCapture(video_path)
     cal_frames = []
@@ -192,7 +219,7 @@ def raw_video_to_waveform(video_path, calibration_data, num_stakes, track_every,
     #apply calibration: 
     while ret:
         ret, frame = cap.read()
-        undistorted_frame = cv2.undistort(frame, mtx, dist, None, mtx)
+        undistorted_frame = cv2.undistort(frame, mtx, dist)
         #get current frame number: 
         current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
         if save_cal: 
@@ -212,9 +239,21 @@ def raw_video_to_waveform(video_path, calibration_data, num_stakes, track_every,
     return position
 
 def load_camera_calibration_data(matrix_path, distance_coefficient_path):
+    '''
+    Args:
+        matrix_path (str): path to camera calibration matrix
+        distance_coefficient_path (str): path to distance coefficent matrix
+
+    Returns:
+        matrix_array (np.ndarray): array of camera calibration matrix
+        distance_coefficient_array (np.ndarray): array of distance coefficeint matrix
+    '''
     return np.load(matrix_path), np.load(distance_coefficient_path)
 
 def test_raw_video_to_waveform(video_path,matrix_path,distance_coefficient_path, num_stakes, track_every, show, save_cal):
+    '''
+    
+    '''
     calibration_data = load_camera_calibration_data(matrix_path, distance_coefficient_path)
     return raw_video_to_waveform(video_path, calibration_data,num_stakes,track_every, show, save_cal)
     
