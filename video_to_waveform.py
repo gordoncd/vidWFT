@@ -1,4 +1,5 @@
 '''
+THIS FILE IS DATED AND CONTAINS NO RELEVANT OR CURRENTLY USED CODE.
 Gordon Doore
 Convert video of ____ experimental setup into waveforms representing wave characteristics
 06/10/2024

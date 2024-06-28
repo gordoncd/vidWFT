@@ -260,8 +260,21 @@ def load_camera_calibration_data(matrix_path, distance_coefficient_path):
 
 def test_raw_video_to_waveform(video_path,matrix_path,distance_coefficient_path, num_stakes, track_every, show, save_cal):
     '''
-    
+    test for raw_video_to_waveform() gets calibration data and runs the calibration/waveform function
+
+    Args:
+        video_path (str): path to unrectified video to be processed
+        matrix_path (str): path to camera matrix array
+        distance_coefficient_path (str): path to dist coefficient array
+        num_stakes (int): number of stakes to be tracked in video
+        track_every (int): frequency to track object movement
+        show (bool): whether or not to show video while tracking
+        save_cal (bool): whether or not to save calibrated video    
+
+    Returns: 
+        positions (np.ndarray): ndarray of the positions across the video for the given conditions
     '''
+    
     calibration_data = load_camera_calibration_data(matrix_path, distance_coefficient_path)
     return raw_video_to_waveform(video_path, calibration_data,num_stakes,track_every, show, save_cal)
     
