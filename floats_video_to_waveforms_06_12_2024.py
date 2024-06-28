@@ -22,16 +22,16 @@ def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
     '''
     Converts a rectified video of floating objects to waveforms.
     
-    Parameters:
-    rectified_video_path (str): The path to the rectified video file.
-    ppm (float): The pixels per meter conversion factor.
-    num_stakes (int): The number of floating objects to track.
-    arr_out_path (str, optional): The output path for the waveform measurements array. Defaults to 'wave_measurements.npy'.
-    graph_out_path (str, optional): The output path for the position graphs. Defaults to 'position_graphs.png'.
-    show (bool, optional): Whether to display the tracking frames. Defaults to True.
+    Args:
+        rectified_video_path (str): The path to the rectified video file.
+        ppm (float): The pixels per meter conversion factor.
+        num_stakes (int): The number of floating objects to track.
+        arr_out_path (str, optional): The output path for the waveform measurements array. Defaults to 'wave_measurements.npy'.
+        graph_out_path (str, optional): The output path for the position graphs. Defaults to 'position_graphs.png'.
+        show (bool, optional): Whether to display the tracking frames. Defaults to True.
     
     Returns:
-    numpy.ndarray: The waveform measurements array.
+        numpy.ndarray: The waveform measurements array.
     '''
     
     position = track_objects_in_video(rectified_video_path,num_stakes, show = show)
@@ -59,17 +59,17 @@ def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path,
                             show = True):
     '''Converts an unrectified video of floating objects to waveforms.
     
-    Parameters:
-    video_path (str): The path to the rectified video file.
-    ppm (float): The pixels per meter conversion factor.
-    num_stakes (int): The number of floating objects to track.
-    arr_out_path (str, optional): The output path for the waveform measurements array. Defaults to 'wave_measurements.npy'.
-    graph_out_path (str, optional): The output path for the position graphs. Defaults to 'position_graphs.png'.
-    threshold_condition (function): Function that is applied to ndarray which threhsolds based on some intrinsic value
-    show (bool, optional): Whether to display the tracking frames. Defaults to True.
+    Args:
+        video_path (str): The path to the rectified video file.
+        ppm (float): The pixels per meter conversion factor.
+        num_stakes (int): The number of floating objects to track.
+        arr_out_path (str, optional): The output path for the waveform measurements array. Defaults to 'wave_measurements.npy'.
+        graph_out_path (str, optional): The output path for the position graphs. Defaults to 'position_graphs.png'.
+        threshold_condition (function): Function that is applied to ndarray which threhsolds based on some intrinsic value
+        show (bool, optional): Whether to display the tracking frames. Defaults to True.
     
     Returns:
-    numpy.ndarray: The waveform measurements array.
+        numpy.ndarray: The waveform measurements array.
     '''
     #first we rectify our image:
     orth.rectify_video_by_gradation(video_path,rect_path, threshold_condition,show)
@@ -78,6 +78,8 @@ def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path,
 
 def tracker_init(frame, num_stakes):
     '''
+    initialize cv2 object trackers 
+    NOTE: will add ability to change tracker type later
     
     '''
     trackers = []
@@ -92,6 +94,7 @@ def tracker_init(frame, num_stakes):
 
 def trackers_update(trackers,frame, cur_frame_num, position,show = True):
     '''
+    update cv2 object trackers
     
     '''
     for i, tracker in enumerate(trackers):
@@ -142,6 +145,7 @@ def track_objects_in_video(cap, num_stakes, show=False, track_every = 1):
 
 def unrectified_to_waveform(video_path, num_stakes, track_every, show = True):
     '''
+    converted unrectified (calibrated) video to waveform
 
     Args:
         video_path (str): path to unrectified video to be processed
@@ -185,6 +189,8 @@ def unrectified_to_waveform(video_path, num_stakes, track_every, show = True):
 
 def raw_video_to_waveform(video_path, calibration_data, num_stakes, track_every, show = True, save_cal = False):
     '''
+    converts raw (uncalibrated) video to waveform
+
     Args:
         video_path (str): path to unrectified video to be processed
         calibration_data (tuple): tuple of ndarrays (matrix_data, dist_data)
@@ -240,6 +246,8 @@ def raw_video_to_waveform(video_path, calibration_data, num_stakes, track_every,
 
 def load_camera_calibration_data(matrix_path, distance_coefficient_path):
     '''
+    load calibration matrices. Helper function for test_raw_video_to_waveform
+
     Args:
         matrix_path (str): path to camera calibration matrix
         distance_coefficient_path (str): path to distance coefficent matrix
