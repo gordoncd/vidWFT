@@ -13,8 +13,9 @@ import skimage
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from collections.abc import Iterable
 
-def pick_points(img):
+def pick_points(img : np.ndarray) -> np.ndarray:
     chosen_points = []
     rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -36,7 +37,7 @@ def pick_points(img):
     print("points finalized")
     return chosen_points
 
-def rectify(img, inpoints, outpoints):
+def rectify(img : np.ndarray, inpoints : np.ndarray, outpoints : np.ndarray) -> np.ndarray:
     '''
     img: input image
     inpoints: original points
@@ -50,7 +51,7 @@ def rectify(img, inpoints, outpoints):
     return result
 
 
-def order_points(pts):
+def order_points(pts : np.ndarray) -> np.ndarray:
     # Initialize a list of coordinates that will be ordered
     # such that the first entry in the list is the top-left,
     # the second entry is the top-right, the third is the
@@ -73,7 +74,7 @@ def order_points(pts):
     # return the ordered coordinates
     return rect
 
-def two_largest(column):
+def two_largest(column : Iterable) -> tuple[set]:
     indices = set()
     first =  set()
     second = set()
@@ -109,7 +110,7 @@ def two_largest(column):
             second = indices
     return first, second
 
-def find_difference_gradations(gradation_pix):
+def find_difference_gradations(gradation_pix : Iterable[np.ndarray]):
     distances = []
     for column in gradation_pix:
         first,second = two_largest(column)
@@ -120,7 +121,7 @@ def find_difference_gradations(gradation_pix):
         
     return distances
 
-def find_gradations(img, lines, threshold_condition):
+def find_gradations(img : np.ndarray, lines : np.ndarray, threshold_condition : function):
     #lines is the lines produced when selecting one vertical slice of each stake
     #returns points of the center of our gradations
     all_stake_points = []
@@ -145,7 +146,7 @@ def find_gradations(img, lines, threshold_condition):
     #now return the indices of lines based on the index from we just got
     return np.array(all_stake_points)
 
-def get_ppm(img, points, pixel_columns, gradation_size, stake_thresh, stake_grad_thresh, peaks_sampled):
+def get_ppm(img : np.ndarray, points : np.ndarray, pixel_columns : Iterable[np.ndarray], gradation_size : np.ndarray, stake_thresh : int, stake_grad_thresh : int, peaks_sampled : int) -> np.ndarray:
     '''
     get ppm of different stakes, assumes it is relatively similar for the stake
     ie that the camera is sufficiently far away that there is insignificant perspective warping
@@ -160,11 +161,13 @@ def get_ppm(img, points, pixel_columns, gradation_size, stake_thresh, stake_grad
     
     return ppm_stake
 
-def linear_transform(points):
-    #returns linear function for perspective warping between two stakes with gradations at points
-    #points: ndarray shape: (N_stakes, 2,2) 
-    #points[:,0] are the first gradation for a given stake
-    #points[:,1] are the second gradation for a given stake
+def linear_transform(points : np.ndarray):
+    '''
+    returns linear function for perspective warping between two stakes with gradations at points
+    points: ndarray shape: (N_stakes, 2,2) 
+    points[:,0] are the first gradation for a given stake
+    points[:,1] are the second gradation for a given stake
+    '''
     
     # Calculate the slope and intercept for each stake
     slopes = (points[:, 1, 1] - points[:, 0, 1]) / (points[:, 1, 0] - points[:, 0, 0])
@@ -174,7 +177,7 @@ def linear_transform(points):
 
 
 
-def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshold_condition = None, load_prev_grad = None):
+def rectify_by_gradation(img : np.ndarray ,n_stakes : int, stake_thresh : int, stake_grad_thresh : int, threshold_condition : function = None, load_prev_grad : bool = None) -> tuple[np.ndarray]:
     '''
     find gradated stakes and rectify image by size variation
 
@@ -206,7 +209,7 @@ def rectify_by_gradation(img,n_stakes, stake_thresh, stake_grad_thresh, threshol
     rectified = rectify(img, np.float32(old_points), np.float32(new_points))
     return rectified, old_points
 
-def define_stakes(img, n_stakes):
+def define_stakes(img : np.ndarray, n_stakes : int) -> tuple[np.ndarray]:
     """
     user draws lines on images for n_stakes
     returns pixel columns and stake coordinates
@@ -265,7 +268,7 @@ def define_stakes(img, n_stakes):
     return all_points, all_lines
 
 
-def rectify_video(input_video_path, output_video_path):
+def rectify_video(input_video_path : str, output_video_path : str) -> None:
     '''USED COPILOT WITH PROMPT: I want a function which uses the following 
     code to first pick points based on the first frame of some input video.
     Next, we will use those points project onto ALL frames. 
@@ -337,7 +340,7 @@ def rectify_video(input_video_path, output_video_path):
     # Release the VideoWriter object
     out.release()
 
-def rectify_video_by_gradation(input_video_path, output_video_path,threshold_condition,show):
+def rectify_video_by_gradation(input_video_path : str, output_video_path : str,threshold_condition : function, show : bool)-> None:
     '''
     Rectify a video by gradations
 
@@ -403,6 +406,7 @@ def rectify_video_by_gradation(input_video_path, output_video_path,threshold_con
 
     # Release the VideoWriter object
     out.release()
+    return
 
 if __name__ == '__main__':
     #get input image

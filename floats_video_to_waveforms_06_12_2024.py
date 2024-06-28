@@ -52,17 +52,18 @@ def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
     np.save(arr_out_path,position)
     return position
 
-def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path, 
-                            arr_out_path = 'wave_measurements.npy',
-                            graph_out_path = 'position_graphs.png', 
-                            threshold_condition = lambda x: np.sum(x,axis=1)<300,
-                            show = True):
+def unrectified_to_rect_to_waveform(video_path : str, ppm : np.ndarray, num_stakes : int,rect_path : str, 
+                            arr_out_path : str = 'wave_measurements.npy',
+                            graph_out_path : str= 'position_graphs.png', 
+                            threshold_condition : function = lambda x: np.sum(x,axis=1)<300,
+                            show : bool = True) -> np.ndarray:
     '''Converts an unrectified video of floating objects to waveforms.
     
     Args:
         video_path (str): The path to the rectified video file.
         ppm (float): The pixels per meter conversion factor.
         num_stakes (int): The number of floating objects to track.
+        rect_path (str): path to save rectified video to
         arr_out_path (str, optional): The output path for the waveform measurements array. Defaults to 'wave_measurements.npy'.
         graph_out_path (str, optional): The output path for the position graphs. Defaults to 'position_graphs.png'.
         threshold_condition (function): Function that is applied to ndarray which threhsolds based on some intrinsic value
@@ -76,7 +77,7 @@ def unrectified_to_rect_to_waveform(video_path, ppm, num_stakes,rect_path,
     return rect_floats_video_to_waveform(rect_path, ppm, num_stakes, arr_out_path, 
                              graph_out_path,show)
 
-def tracker_init(frame, num_stakes):
+def tracker_init(frame: np.ndarray, num_stakes : int) -> list[cv2.Tracker]:
     '''
     initialize cv2 object trackers 
     NOTE: will add ability to change tracker type later
@@ -92,10 +93,19 @@ def tracker_init(frame, num_stakes):
         tracker.init(frame, roi)
     return trackers
 
-def trackers_update(trackers,frame, cur_frame_num, position,show = True):
+def trackers_update(trackers: list[cv2.Tracker],frame: np.ndarray, cur_frame_num : int, position : np.ndarray,show : bool= True)-> np.ndarray:
     '''
     update cv2 object trackers
     
+    Parameters:
+    trackers (list[cv2.Tracker]): A list of OpenCV Tracker objects.
+    frame (np.ndarray): The current video frame as a NumPy array.
+    cur_frame_num (int): The current frame number in the video sequence.
+    position (np.ndarray): The initial position of the object to track.
+    show (bool, optional): If True, display the tracking result. Defaults to True.
+
+    Returns:
+        np.ndarray: The updated position of the tracked objects.
     '''
     for i, tracker in enumerate(trackers):
         success, bbox = tracker.update(frame)
@@ -107,14 +117,15 @@ def trackers_update(trackers,frame, cur_frame_num, position,show = True):
     return frame
 
 
-def track_objects_in_video(cap, num_stakes, show=False, track_every = 1):
+def track_objects_in_video(cap : cv2.VideoCapture, num_stakes: int, show : bool =False, track_every : int = 1) -> np.ndarray:
     """
     Tracks objects in a video using cv2 object tracker.
 
     Args:
         video_path (str): Path to the video file.
         num_stakes (int): Number of objects to track.
-        show (bool): If True, display the tracking process in real-time.
+        show (bool, optional): If True, display the tracking process in real-time.
+        track_every (int, optional): how often tracking occurs
 
     Returns:
         np.ndarray: An array containing the positions of the tracked objects.
@@ -143,7 +154,7 @@ def track_objects_in_video(cap, num_stakes, show=False, track_every = 1):
     cv2.destroyAllWindows()
     return position
 
-def unrectified_to_waveform(video_path, num_stakes, track_every, show = True):
+def unrectified_to_waveform(video_path : str, num_stakes : int, track_every : int, show : bool = True) -> tuple[np.ndarray]:
     '''
     converted unrectified (calibrated) video to waveform
 
@@ -151,7 +162,7 @@ def unrectified_to_waveform(video_path, num_stakes, track_every, show = True):
         video_path (str): path to unrectified video to be processed
         num_stakes (int): number of stakes to be tracked in video
         track_every (int): frequency to track object movement
-        show (bool): whether or not to show video while tracking
+        show (bool, optional): whether or not to show video while tracking
 
     
     Returns: 
@@ -187,7 +198,7 @@ def unrectified_to_waveform(video_path, num_stakes, track_every, show = True):
     #save array
     return positions,ppm
 
-def raw_video_to_waveform(video_path, calibration_data, num_stakes, track_every, show = True, save_cal = False):
+def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes : int, track_every : int, show : bool = True, save_cal : bool = False) -> np.ndarray:
     '''
     converts raw (uncalibrated) video to waveform
 
@@ -244,9 +255,9 @@ def raw_video_to_waveform(video_path, calibration_data, num_stakes, track_every,
     cv2.destroyAllWindows()
     return position
 
-def load_camera_calibration_data(matrix_path, distance_coefficient_path):
+def load_camera_calibration_data(matrix_path : str, distance_coefficient_path : str) -> tuple[np.ndarray]:
     '''
-    load calibration matrices. Helper function for test_raw_video_to_waveform
+    load calibration matrices. Helper function for `test_raw_video_to_waveform`
 
     Args:
         matrix_path (str): path to camera calibration matrix
@@ -258,7 +269,7 @@ def load_camera_calibration_data(matrix_path, distance_coefficient_path):
     '''
     return np.load(matrix_path), np.load(distance_coefficient_path)
 
-def test_raw_video_to_waveform(video_path,matrix_path,distance_coefficient_path, num_stakes, track_every, show, save_cal):
+def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coefficient_path : str, num_stakes: int, track_every : int, show : bool, save_cal : bool) ->np.ndarray:
     '''
     test for raw_video_to_waveform() gets calibration data and runs the calibration/waveform function
 
@@ -274,7 +285,7 @@ def test_raw_video_to_waveform(video_path,matrix_path,distance_coefficient_path,
     Returns: 
         positions (np.ndarray): ndarray of the positions across the video for the given conditions
     '''
-    
+
     calibration_data = load_camera_calibration_data(matrix_path, distance_coefficient_path)
     return raw_video_to_waveform(video_path, calibration_data,num_stakes,track_every, show, save_cal)
     

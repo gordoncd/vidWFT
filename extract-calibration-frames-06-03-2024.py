@@ -14,7 +14,7 @@ Last Modified: 06/04/2024
 
 import numpy as np
 import cv2
-def extract_calibration_frames(filepath, nframes):
+def extract_calibration_frames(filepath : str, nframes : int) ->list[np.ndarray]:
     #randomly grab nframes frames from the mp4 at
     # filepath and return them as a list of numpy arrays 
     cap = cv2.VideoCapture(filepath)
