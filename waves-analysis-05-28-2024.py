@@ -43,10 +43,10 @@ while True:
 
     #now we make object detection of the roi of the mask
     mask = object_detector.apply(roi)
-    _, mask = cv2.threshold(mask, 254, 255, cv2.THRESH_BINARY)
-    contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    _, mask = cv2.threshold(mask, 254, 255, cv2.THRESH_BINARY) #type: ignore
+    contours, _ = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE) #type: ignore
     #contours are our 'found objects'
-    frame_ylist = []
+    frame_ylist : list[int]= []
     for cnt in contours:
         #for each contour we determine if its our ball
 

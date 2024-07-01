@@ -9,13 +9,14 @@ Last Modified: 06/13/2024
 
 '''
 
-import skimage
+import skimage #type: ignore
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt 
 from collections.abc import Iterable
+from typing import Any, Callable, Tuple
 
-def pick_points(img : np.ndarray) -> np.ndarray:
+def pick_points(img : np.ndarray) -> list[Any]:
     chosen_points = []
     rgb_img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
@@ -47,7 +48,6 @@ def rectify(img : np.ndarray, inpoints : np.ndarray, outpoints : np.ndarray) -> 
     out = np.copy(img)
     matrix = cv2.getPerspectiveTransform(inpoints, outpoints)
     result = cv2.warpPerspective(out, matrix, (img.shape[1], img.shape[0]))
-
     return result
 
 
@@ -74,40 +74,32 @@ def order_points(pts : np.ndarray) -> np.ndarray:
     # return the ordered coordinates
     return rect
 
-def two_largest(column : Iterable) -> tuple[set]:
-    indices = set()
-    first =  set()
-    second = set()
-    prev = None
-    indices.add(column[0])
-    for index in column:   
-        if prev ==None or len(indices) == 1:
-            prev = index
-            indices.add(index)
-            continue
-        if index == prev+1:
-            indices.add(index)
-        else: 
-            if len(indices)>len(first): 
-                proxy = first
-                first = indices
-                if len(proxy)>len(second):
-                    second = proxy
-            elif len(indices) > len(second):
-                second = indices
+def two_largest(arr : np.ndarray) -> Tuple[list[Any], list[Any]]:
+    if arr is None:
+        return [], []
+    print(arr)
+    first : list = []
+    second : list = []
+    current_subsequence = [arr[0]]
 
-            indices = set()
-        prev = index 
-        indices.add(index)
-    if column[-1] in indices:
-        #do the comparison again
-        if len(indices)>len(first): 
-            proxy = first
-            first = indices
-            if len(proxy)>len(second):
-                second = proxy
-        elif len(indices) > len(second):
-            second = indices
+    for i in range(1, len(arr)):
+        # Check if current element continues the subsequence
+        if arr[i] == arr[i-1] + 1:
+            current_subsequence.append(arr[i])
+        else:
+            # Compare and possibly update first and second largest subsequences
+            if len(current_subsequence) > len(first):
+                first, second = current_subsequence, first
+            elif len(current_subsequence) > len(second):
+                second = current_subsequence
+            current_subsequence = [arr[i]]
+
+    # Check the last subsequence
+    if len(current_subsequence) > len(first):
+        first, second = current_subsequence, first
+    elif len(current_subsequence) > len(second):
+        second = current_subsequence
+
     return first, second
 
 def find_difference_gradations(gradation_pix : Iterable[np.ndarray]):
@@ -121,7 +113,7 @@ def find_difference_gradations(gradation_pix : Iterable[np.ndarray]):
         
     return distances
 
-def find_gradations(img : np.ndarray, lines : np.ndarray, threshold_condition : function):
+def find_gradations(img : np.ndarray, lines : list[np.ndarray], threshold_condition : Callable[[np.ndarray], np.ndarray]):
     #lines is the lines produced when selecting one vertical slice of each stake
     #returns points of the center of our gradations
     all_stake_points = []
@@ -129,6 +121,7 @@ def find_gradations(img : np.ndarray, lines : np.ndarray, threshold_condition : 
     #pair parts of lines
     i=0
     for line in lines:
+        print('line ')
         #get the pixel value of the pixels defined by lines
         pixels = img[line[1],line[0]]
         #threshold those values
@@ -136,6 +129,7 @@ def find_gradations(img : np.ndarray, lines : np.ndarray, threshold_condition : 
         #find the midpoint of the two biggest groups
         gradation_idx = np.squeeze(gradation_idx)
         first, second = two_largest(gradation_idx)
+        print(first,second)
         #first and second are sets, so we get their average value and just get the int of that up to half a pixel of error introduced here
         mid1 = int(sum(first)/len(first))
         mid2 = int(sum(second)/len(second))
@@ -177,7 +171,7 @@ def linear_transform(points : np.ndarray):
 
 
 
-def rectify_by_gradation(img : np.ndarray ,n_stakes : int, stake_thresh : int, stake_grad_thresh : int, threshold_condition : function = None, load_prev_grad : bool = None) -> tuple[np.ndarray]:
+def rectify_by_gradation(img : np.ndarray ,n_stakes : int, stake_thresh : int, stake_grad_thresh : int, threshold_condition : Callable[[np.ndarray], np.ndarray], load_prev_grad : np.ndarray = np.zeros((4,))) -> Tuple[np.ndarray, np.ndarray]:
     '''
     find gradated stakes and rectify image by size variation
 
@@ -191,7 +185,7 @@ def rectify_by_gradation(img : np.ndarray ,n_stakes : int, stake_thresh : int, s
     spaced in real space. 
     '''
     #get points and lines
-    if load_prev_grad is None:
+    if np.sum(load_prev_grad) == 0:
         all_points, all_lines = define_stakes(img,n_stakes)
         #find the points of the gradations: 
         gradation_points = find_gradations(img,all_lines,threshold_condition)
@@ -199,6 +193,7 @@ def rectify_by_gradation(img : np.ndarray ,n_stakes : int, stake_thresh : int, s
         old_points = np.flip(gradation_points, axis = 2)
         old_points = old_points.reshape((old_points.shape[0]*old_points.shape[1],old_points.shape[2]))
         old_points = order_points(old_points)
+        print(old_points, np.array([old_points[0], [old_points[1,0], old_points[0,1]], [old_points[0,0], old_points[2,1]], [old_points[1,0], old_points[2,1]]], dtype=np.float32))
     else:
         old_points = load_prev_grad
 
@@ -206,10 +201,10 @@ def rectify_by_gradation(img : np.ndarray ,n_stakes : int, stake_thresh : int, s
     new_points = np.array([old_points[0], [old_points[1,0], old_points[0,1]], [old_points[0,0], old_points[2,1]], [old_points[1,0], old_points[2,1]]], dtype=np.float32)
     #we use the gradation points as the input points
     #now we need the destination poirnts
-    rectified = rectify(img, np.float32(old_points), np.float32(new_points))
+    rectified = rectify(img, old_points.astype(np.float32), new_points.astype(np.float32))
     return rectified, old_points
 
-def define_stakes(img : np.ndarray, n_stakes : int) -> tuple[np.ndarray]:
+def define_stakes(img : np.ndarray, n_stakes : int) -> Tuple[list[list[Any]], list[Any]]:
     """
     user draws lines on images for n_stakes
     returns pixel columns and stake coordinates
@@ -251,7 +246,7 @@ def define_stakes(img : np.ndarray, n_stakes : int) -> tuple[np.ndarray]:
 
     for n in range(n_stakes):
         print("Stake number:", n)
-        chosen_points = []
+        chosen_points : list[Tuple[float,float]] = []
         fig, ax = plt.subplots()
         ax.imshow(rgb_img)
         fig.canvas.mpl_connect('button_press_event', onclick)
@@ -331,7 +326,7 @@ def rectify_video(input_video_path : str, output_video_path : str) -> None:
 
     #now we save frames as an mp4:
     # Create a VideoWriter object
-    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
+    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height)) # type: ignore
 
     # Write the frames to the video file
     for frame in frames:
@@ -340,7 +335,9 @@ def rectify_video(input_video_path : str, output_video_path : str) -> None:
     # Release the VideoWriter object
     out.release()
 
-def rectify_video_by_gradation(input_video_path : str, output_video_path : str,threshold_condition : function, show : bool)-> None:
+
+
+def rectify_video_by_gradation(input_video_path : str, output_video_path : str, threshold_condition : Callable[[np.ndarray], np.ndarray], show : bool = False) -> None:
     '''
     Rectify a video by gradations
 
@@ -380,7 +377,7 @@ def rectify_video_by_gradation(input_video_path : str, output_video_path : str,t
         while cap.isOpened():
             ret, frame = cap.read()
             if ret:
-                rectified, old_points = rectify_by_gradation(frame,2,100,100, load_prev_grad = gradation_pts)
+                rectified, old_points = rectify_by_gradation(frame,2,100,100, threshold_condition, load_prev_grad = gradation_pts)
                 if rectified.shape != (frame_width,frame_height,3):
                     # Resize the rectified frame to match the original frame size
                     rectified = cv2.resize(rectified, (frame_width, frame_height))
@@ -398,7 +395,7 @@ def rectify_video_by_gradation(input_video_path : str, output_video_path : str,t
 
     #now we save frames as an mp4:
     # Create a VideoWriter object
-    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))
+    out = cv2.VideoWriter(output_video_path, cv2.VideoWriter_fourcc(*'mp4v'), 30, (frame_width, frame_height))#type: ignore
 
     # Write the frames to the video file
     for frame in frames:

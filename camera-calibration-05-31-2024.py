@@ -8,7 +8,7 @@ scripts to obtain calibration data for camera
 import numpy as np
 import cv2
 import glob
-import yaml 
+import yaml #type: ignore
 
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
@@ -44,7 +44,7 @@ for fname in images:
 cv2.destroyAllWindows()
 
 # calibrate camera
-ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+ret, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None) #type: ignore
 
 print("Camera matrix : \n")
 print(mtx)

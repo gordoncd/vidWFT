@@ -104,7 +104,7 @@ def video_to_waveform(rectified_video, graph_dest, arr_dest,ppm, color_low, colo
         plt.xlabel('Frame')
         plt.ylabel('Position')
         plt.title('Waveform for Float {}'.format(i+1))
-        plt.savefig(graph_dest + '/waveform_float_{}'+current_time+ '.svg'.format(i+1))
+        plt.savefig(graph_dest + '/waveform_float_{}'+current_time+ '.svg')
         plt.close()
     
 def candidate_score(contour, hsv, light_green_low, light_green_high):

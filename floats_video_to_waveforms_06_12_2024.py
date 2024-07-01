@@ -14,6 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import orthorec_06_03_2024 as orth
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, Callable, Tuple
+from collections.abc import Iterable
 
 
 def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes, 
@@ -55,7 +57,7 @@ def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes,
 def unrectified_to_rect_to_waveform(video_path : str, ppm : np.ndarray, num_stakes : int,rect_path : str, 
                             arr_out_path : str = 'wave_measurements.npy',
                             graph_out_path : str= 'position_graphs.png', 
-                            threshold_condition : function = lambda x: np.sum(x,axis=1)<300,
+                            threshold_condition : Callable[[np.ndarray[Any, Any]], np.ndarray[Any, Any]] = lambda x: np.sum(x,axis=1)<300,
                             show : bool = True) -> np.ndarray:
     '''Converts an unrectified video of floating objects to waveforms.
     
@@ -88,7 +90,7 @@ def tracker_init(frame: np.ndarray, num_stakes : int) -> list[cv2.Tracker]:
         roi = cv2.selectROI("Select ROI", frame, False)
         cv2.waitKey(1)
         cv2.destroyAllWindows()
-        tracker = cv2.legacy_TrackerCSRT.create()
+        tracker = cv2.legacy_TrackerCSRT.create() #type: ignore
         trackers.append(tracker)
         tracker.init(frame, roi)
     return trackers
@@ -154,7 +156,7 @@ def track_objects_in_video(cap : cv2.VideoCapture, num_stakes: int, show : bool 
     cv2.destroyAllWindows()
     return position
 
-def unrectified_to_waveform(video_path : str, num_stakes : int, track_every : int, show : bool = True) -> tuple[np.ndarray]:
+def unrectified_to_waveform(video_path : str, num_stakes : int, track_every : int, show : bool = True) -> tuple[np.ndarray,Any]:
     '''
     converted unrectified (calibrated) video to waveform
 
@@ -183,10 +185,10 @@ def unrectified_to_waveform(video_path : str, num_stakes : int, track_every : in
     #next, we extract the points of the gradations for n_stakes
     #for now we have the user select these points.
     all_points, all_lines = orth.define_stakes(frame,num_stakes)
-    all_points = np.array(all_points)
+    arr_all_points = np.array(all_points)
     #assuming the user chooses points corresponding to the gradations
     #we use this to save the ppm for each stake:
-    ppm = np.linalg.norm(all_points[:,0]-all_points[:,1],axis = 1)
+    ppm = np.linalg.norm(arr_all_points[:,0]-arr_all_points[:,1],axis = 1)
     
     #after getting ppm, track each stake in the input space:
     
@@ -225,10 +227,10 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
     
     #get ppm on undistorted frame: 
     all_points, all_lines = orth.define_stakes(undistorted_frame,num_stakes)
-    all_points = np.array(all_points)
+    all_points_arr = np.array(all_points)
     #assuming the user chooses points corresponding to the gradations
     #we use this to save the ppm for each stake:
-    ppm = np.linalg.norm(all_points[:,0]-all_points[:,1],axis = 1)
+    ppm = np.linalg.norm(all_points_arr[:,0]-all_points_arr[:,1],axis = 1) #type: ignore
 
     #define floats to track
     trackers = tracker_init(undistorted_frame,num_stakes)
@@ -236,9 +238,11 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
     #apply calibration: 
     while ret:
         ret, frame = cap.read()
-        undistorted_frame = cv2.undistort(frame, mtx, dist)
-        #get current frame number: 
         current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+        if current_frame % track_every != 0: 
+            continue
+        undistorted_frame = cv2.undistort(frame, mtx, dist,None)
+        #get current frame number: 
         if save_cal: 
             #append calframes
             cal_frames.append(undistorted_frame)
@@ -249,13 +253,13 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
                 break
     
     #apply derived ppm to the positions: 
-    positions = positions/ppm
+    position_real_space : np.ndarray = position/ppm
         
     cap.release()
     cv2.destroyAllWindows()
-    return position
+    return position_real_space
 
-def load_camera_calibration_data(matrix_path : str, distance_coefficient_path : str) -> tuple[np.ndarray]:
+def load_camera_calibration_data(matrix_path : str, distance_coefficient_path : str) -> tuple[Any,Any]:
     '''
     load calibration matrices. Helper function for `test_raw_video_to_waveform()`
 
@@ -289,11 +293,23 @@ def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coeff
     calibration_data = load_camera_calibration_data(matrix_path, distance_coefficient_path)
     return raw_video_to_waveform(video_path, calibration_data,num_stakes,track_every, show, save_cal)
     
+def plot_wave_positions(arr : np.ndarray, path : str) -> None:
+    num_stakes : int = arr.shape[1]
+    fig : plt.Figure = plt.figure()
+    for i in range(num_stakes):
+        name : str = 'stake'+str(i)
+        plt.plot(arr[:,i,1],label = name)
+    plt.xlabel('Time')
+    plt.ylabel('Position (m)')
+    plt.legend()
+    fig.savefig(path)
+    return 
+
 if __name__ == '__main__':
     # floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
 
-    unrectified_path = 'videos/floats_perp_4k_none.MP4'
-    # unrectified_path = 'videos/floats_R3yel_4k_uv.MP4'
+    #unrectified_path = 'videos/floats_perp_4k_none.MP4'
+    unrectified_path = 'videos/floats_beach_4k_uv.MP4'
     # num_stakes = 2
     # rect_path = 'videos/rectified_case.mp4'
 
@@ -315,4 +331,7 @@ if __name__ == '__main__':
     # np.save('array2.npy',positions[2:])
     matrix_path = 'acortiz@colbydotedu_CALIB/camera_matrix.npy'
     dist_path = 'acortiz@colbydotedu_CALIB/dist_coeff.npy'
-    test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 5,True, False)
+    graph_out = 'test_raw_vid_unrec_floats_beach_4k.png'
+    positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 3,True, False)
+    plot_wave_positions(positions, graph_out)
+
