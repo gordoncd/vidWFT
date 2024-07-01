@@ -14,29 +14,29 @@ import yaml #type: ignore
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((70,3), np.float32)
-objp[:,:2] = np.mgrid[0:7,0:10].T.reshape(-1,2)
+objp = np.zeros((54,3), np.float32)
+objp[:,:2] = np.mgrid[0:6,0:9].T.reshape(-1,2)
 
 # store points
 objpoints = [] # made up for the most part
 imgpoints = [] # points
 
 # list of image filepaths
-images = glob.glob('/Users/gordondoore/Documents/GitHub/waves-summer-2024/calib_frames/*.jpg') 
+images = glob.glob('/Users/gordondoore/Documents/GitHub/waves-summer-2024/acortiz@colbydotedu_CALIB/calib_frames_4k/*.jpg') 
+
 for fname in images:
     img = cv2.imread(fname)
     #img = cv2.resize(img, (350,350))
 
     gray  = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     # find corners
-    ret, corners = cv2.findChessboardCorners(gray, (7,10), flags = cv2.CALIB_CB_ADAPTIVE_THRESH+cv2.CALIB_CB_FAST_CHECK+cv2.CALIB_CB_NORMALIZE_IMAGE)
+    ret, corners = cv2.findChessboardCorners(gray, (6,9), flags = cv2.CALIB_CB_ADAPTIVE_THRESH+cv2.CALIB_CB_FAST_CHECK+cv2.CALIB_CB_NORMALIZE_IMAGE)
     #add points to image
     if ret:
         objpoints.append(objp)
-        print(objp)
 
         # draw corners
-        img = cv2.drawChessboardCorners(img, (7,10), corners, ret)
+        img = cv2.drawChessboardCorners(img, (6,9), corners, ret)
         imgpoints.append(corners)
         cv2.imshow('img', img)
         cv2.waitKey(0)
@@ -76,7 +76,7 @@ with open('/Users/gordondoore/Documents/GitHub/waves-summer-2024/gopro_1080_vid_
 
 #also save as numpy arrays: 
 
-np.save('/Users/gordondoore/Documents/GitHub/waves-summer-2024/camera_matrix.npy', mtx)
-np.save('/Users/gordondoore/Documents/GitHub/waves-summer-2024/dist_coeff.npy', dist)
-np.save('/Users/gordondoore/Documents/GitHub/waves-summer-2024/rvecs.npy', rvecs)
-np.save('/Users/gordondoore/Documents/GitHub/waves-summer-2024/tvecs.npy', tvecs)
+np.save('/Users/gordondoore/Documents/GitHub/waves-summer-2024/camera_matrix_4k.npy', mtx)
+np.save('/Users/gordondoore/Documents/GitHub/waves-summer-2024/dist_coeff_4k.npy', dist)
+np.save('/Users/gordondoore/Documents/GitHub/waves-summer-2024/rvecs_4k.npy', rvecs)
+np.save('/Users/gordondoore/Documents/GitHub/waves-summer-2024/tvecs_4k.npy', tvecs)

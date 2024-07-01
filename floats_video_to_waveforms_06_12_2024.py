@@ -6,12 +6,12 @@ to adjust for distortion
 Author: Gordon Doore
 Created: 06/12/2024
 
-Last Modified: 06/14/2024
+Last Modified: 07/01/2024
 
 '''
-import cv2 
-import numpy as np
-import matplotlib.pyplot as plt
+import cv2 #type:ignore
+import numpy as np #type: ignore
+import matplotlib.pyplot as plt #type: ignore
 import orthorec_06_03_2024 as orth
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Tuple
@@ -239,9 +239,10 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
     while ret:
         ret, frame = cap.read()
         current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
-        if current_frame % track_every != 0: 
+        if current_frame % track_every != 0 or frame is None: 
             continue
-        undistorted_frame = cv2.undistort(frame, mtx, dist,None)
+        height, width = frame.shape[:2]
+        undistorted_frame = cv2.undistort(frame, mtx, dist, None, newCameraMatrix=mtx)
         #get current frame number: 
         if save_cal: 
             #append calframes
@@ -294,11 +295,14 @@ def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coeff
     return raw_video_to_waveform(video_path, calibration_data,num_stakes,track_every, show, save_cal)
     
 def plot_wave_positions(arr : np.ndarray, path : str) -> None:
+    '''
+    plot wave positions based on array of shape (T,num_stakes,2)
+    '''
     num_stakes : int = arr.shape[1]
     fig : plt.Figure = plt.figure()
     for i in range(num_stakes):
         name : str = 'stake'+str(i)
-        plt.plot(arr[:,i,1],label = name)
+        plt.plot(np.squeeze(np.where(arr[:,i,1]!=0)),label = name)
     plt.xlabel('Time')
     plt.ylabel('Position (m)')
     plt.legend()
@@ -329,9 +333,10 @@ if __name__ == '__main__':
     # fig.savefig('graph1.png')
 
     # np.save('array2.npy',positions[2:])
-    matrix_path = 'acortiz@colbydotedu_CALIB/camera_matrix.npy'
-    dist_path = 'acortiz@colbydotedu_CALIB/dist_coeff.npy'
+    matrix_path = 'acortiz@colbydotedu_CALIB/camera_matrix_4k.npy'
+    dist_path = 'acortiz@colbydotedu_CALIB/dist_coeff_4k.npy'
     graph_out = 'test_raw_vid_unrec_floats_beach_4k.png'
-    positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 3,True, False)
+    positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 5,True, False)
+    np.save('test_4k_uv_beach.npy',positions)
     plot_wave_positions(positions, graph_out)
 
