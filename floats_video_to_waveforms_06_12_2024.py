@@ -299,7 +299,7 @@ def plot_wave_positions(arr : np.ndarray, path : str) -> None:
     plot wave positions based on array of shape (T,num_stakes,2)
     '''
     num_stakes : int = arr.shape[1]
-    fig : plt.Figure = plt.figure()
+    fig : plt.Figure = plt.figure() #type: ignore
     for i in range(num_stakes):
         name : str = 'stake'+str(i)
         plt.plot(np.squeeze(np.where(arr[:,i,1]!=0)),label = name)
