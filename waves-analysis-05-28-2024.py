@@ -14,6 +14,7 @@ from matplotlib import pyplot as plt
 
 #load in video
 cap = cv2.VideoCapture("pingpong.mp4")
+image_name = 'pingpong_testgraph.png'
 #this detector works with a stable camera
 object_detector = cv2.createBackgroundSubtractorMOG2()
 #initiate list of y coords so we can look more at that later
@@ -75,5 +76,5 @@ plt.waitforbuttonpress(0)
 plt.title('graph of ball y position')
 plt.xlabel('frame')
 plt.ylabel('pixel position')
-fig.savefig('pingpong_testgraph.png')
+fig.savefig('output_figures/'+image_name)
 plt.close('all')

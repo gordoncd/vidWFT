@@ -333,10 +333,10 @@ if __name__ == '__main__':
     # fig.savefig('graph1.png')
 
     # np.save('array2.npy',positions[2:])
-    matrix_path = 'acortiz@colbydotedu_CALIB/camera_matrix_4k.npy'
-    dist_path = 'acortiz@colbydotedu_CALIB/dist_coeff_4k.npy'
-    graph_out = 'test_raw_vid_unrec_floats_beach_4k.png'
+    matrix_path = 'calibration/acortiz@colbydotedu_CALIB/camera_matrix_4k.npy'
+    dist_path = 'calibration/acortiz@colbydotedu_CALIB/dist_coeff_4k.npy'
+    graph_out = 'output_figures/test_raw_vid_unrec_floats_beach_4k.png'
     positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 5,True, False)
-    np.save('test_4k_uv_beach.npy',positions)
+    np.save('output_data/test_4k_uv_beach.npy',positions)
     plot_wave_positions(positions, graph_out)
 
