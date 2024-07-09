@@ -14,8 +14,13 @@ import numpy as np #type: ignore
 import matplotlib.pyplot as plt #type: ignore
 import orthorec_06_03_2024 as orth
 from concurrent.futures import ThreadPoolExecutor
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Tuple, Sequence
 from collections.abc import Iterable
+import time
+from numba import jit
+import os
+import subprocess
+import pandas as pd
 
 
 def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes, 
@@ -79,21 +84,23 @@ def unrectified_to_rect_to_waveform(video_path : str, ppm : np.ndarray, num_stak
     return rect_floats_video_to_waveform(rect_path, ppm, num_stakes, arr_out_path, 
                              graph_out_path,show)
 
-def tracker_init(frame: np.ndarray, num_stakes : int) -> list[cv2.Tracker]:
+def tracker_init(frame: np.ndarray, num_stakes : int) -> tuple[list[cv2.Tracker],list[Sequence[int]]]:
     '''
     initialize cv2 object trackers 
     NOTE: will add ability to change tracker type later
     
     '''
     trackers = []
+    regions = []
     for i in range(num_stakes):
         roi = cv2.selectROI("Select ROI", frame, False)
+        regions.append(roi)
         cv2.waitKey(1)
         cv2.destroyAllWindows()
         tracker = cv2.legacy_TrackerCSRT.create() #type: ignore
         trackers.append(tracker)
         tracker.init(frame, roi)
-    return trackers
+    return trackers, regions
 
 def trackers_update(trackers: list[cv2.Tracker],frame: np.ndarray, cur_frame_num : int, position : np.ndarray,show : bool= True)-> np.ndarray:
     '''
@@ -134,7 +141,7 @@ def track_objects_in_video(cap : cv2.VideoCapture, num_stakes: int, show : bool 
     """
     
     ret, frame = cap.read()
-    trackers = tracker_init(frame, num_stakes)
+    trackers, _ = tracker_init(frame, num_stakes)
 
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     position = np.zeros((total_frames, num_stakes, 2))
@@ -217,12 +224,12 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
     '''
     #open video 
     cap = cv2.VideoCapture(video_path)
-    cal_frames = []
     mtx, dist = calibration_data
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
     #on the first frame undistort and then select ppm
     ret, frame = cap.read()
+    #get time to do this: 
     undistorted_frame = cv2.undistort(frame, mtx, dist, None, mtx)
     
     #get ppm on undistorted frame: 
@@ -233,28 +240,56 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
     ppm = np.linalg.norm(all_points_arr[:,0]-all_points_arr[:,1],axis = 1) #type: ignore
 
     #define floats to track
-    trackers = tracker_init(undistorted_frame,num_stakes)
+    trackers, _ = tracker_init(undistorted_frame,num_stakes)
     position = np.zeros((total_frames, num_stakes, 2))
     #apply calibration: 
     while ret:
+        start_time = time.time()
+        loop_start = start_time
         ret, frame = cap.read()
+        io_time = time.time() - start_time
         current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
         if current_frame % track_every != 0 or frame is None: 
             continue
+        
         height, width = frame.shape[:2]
-        undistorted_frame = cv2.undistort(frame, mtx, dist, None, newCameraMatrix=mtx)
-        #get current frame number: 
-        if save_cal: 
-            #append calframes
-            cal_frames.append(undistorted_frame)
-        trackers_update(trackers,undistorted_frame,current_frame,position)
+
+        # Start timer
+        start_time = time.time()
+
+        #cv2 undistort
+        undistorted_frame = cv2.undistort(frame, mtx, dist, None, mtx)
+        cv2_undistort_time = time.time() - start_time
+        
+        # Start timer for trackers_update
+        start_time = time.time()
+        
+        trackers_update(trackers, undistorted_frame, current_frame, position)
+        
+        # Calculate trackers_update time
+        trackers_update_time = time.time() - start_time
+        
         if show:
             cv2.imshow('Tracking', undistorted_frame)
             if cv2.waitKey(1) & 0xFF == 27:  # ESC key to break
                 break
+        
+        # Calculate total loop time
+        total_loop_time = time.time() - loop_start
+        
+        # Calculate proportion of total loop time for each chunk
+        io_proportion = io_time / total_loop_time
+        undistort_frame_proportion = cv2_undistort_time / total_loop_time
+        trackers_update_proportion = trackers_update_time / total_loop_time
+        
+        # Print the proportions
+        print("I/O Proportion:",io_proportion)
+        print("Undistort Frame Proportion:", undistort_frame_proportion)
+        print("Trackers Update Proportion:", trackers_update_proportion)
+
     
     #apply derived ppm to the positions: 
-    position_real_space : np.ndarray = position/ppm
+    position_real_space : np.ndarray = position/np.reshape(ppm,(1,4,1))
         
     cap.release()
     cv2.destroyAllWindows()
@@ -307,13 +342,129 @@ def plot_wave_positions(arr : np.ndarray, path : str) -> None:
     plt.ylabel('Position (m)')
     plt.legend()
     fig.savefig(path)
-    return 
+    return
+
+def extract_metadata_with_ffmpeg(video_path):
+    # Run ffmpeg command to extract metadata
+    cmd = ['ffmpeg', '-i', video_path, '-f', 'ffmetadata', '-']
+    result = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    
+    # ffmpeg writes metadata to stderr
+    metadata_lines = result.stderr.split('\n')
+    metadata = {}
+    for line in metadata_lines:
+        if ': ' in line:
+            key, value = line.split(': ', 1)
+            metadata[key.strip()] = value.strip()
+    return metadata 
+
+def prepare_files(video_path : str, positions_data_raw: np.ndarray, positions_data_clean : np.ndarray, calibration_data : tuple, dest : str = '', **kwargs) -> None: 
+    '''
+    prepare output files from video to waveform
+
+    Args: 
+        video_path (str): path to unrectified video to be processed
+        calibration_data (tuple): tuple of ndarrays (matrix_data, dist_data)
+        dest (str): destination folder for output files
+
+    Returns:
+        None
+    '''
+
+    if dest == '':
+        #make unique name for output based on input parameters
+        dest = 'output_data/'+video_path.split('/')[-1].split('.')[0]+'_' #TODO: change this to something else
+    if not os.path.exists(dest):
+        os.makedirs(dest)
+    graph_dest = kwargs.get('graph_dest', dest)
+    csv_dest = kwargs.get('csv_dest', dest)
+    txt_dest = kwargs.get('txt_dest', dest)
+        
+    #now generate text to put to the txt file
+    #the file will include the video name, any metadata about that video, calibration data, the ppm for each stake
+
+    to_text = []
+    to_text.append("This file contains the output data from the video to waveform conversion")
+    to_text.append('_____________________________________________________________') 
+    to_text.append('Date: '+time.strftime('%m/%d/%Y'))
+    to_text.append('Time: '+time.strftime('%H:%M:%S'))
+    to_text.append('_____________________________________________________________')
+    to_text.append('Video Name: '+video_path)
+    #extract metadata from video: 
+    # Extract metadata from video using ffmpeg
+    video_metadata = extract_metadata_with_ffmpeg(video_path)
+    to_text.append('Video Metadata (Extracted with ffmpeg):')
+    for key, value in video_metadata.items():
+        to_text.append(f'{key}: {value}')
+    to_text.append('_____________________________________________________________')
+
+    mtx, dist = calibration_data
+    to_text.append('Calibration Matrix: \n' + str(mtx))
+    to_text.append('Distance Coefficients: \n' + str(dist))
+    to_text.append('_____________________________________________________________')
+    # floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
+    #now save the text to a file at txt_dest
+    if os.path.exists(txt_dest+'output_data.txt'):
+        #ask for approval in command line to overwrite
+        print('File already exists at '+txt_dest+'/output_data.txt')
+        print('Do you want to overwrite this file?')
+        print('Type "y" to overwrite, anything else will cancel')
+        response = input()
+        if response == 'n':
+            return
+        if response == 'y':
+            print('Overwriting file...')
+    with open(txt_dest+'/output_data.txt', 'w') as f:
+        for line in to_text:
+            f.write(line+'\n')
+        f.close()
+
+    #we now convert waveform arrays to csv files with headers
+    #we will save these to csv_dest
+    #first we save the raw data
+    raw_data_df = pd.DataFrame(positions_data_raw)
+    #now define the headers: 
+    
+    headers = kwargs.get('raw_headers',[])
+    for i in range(positions_data_raw.shape[1]):
+        headers.append('stake'+str(i)+'_pixel_row')
+        headers.append('stake'+str(i)+'_pixel_col')
+
+    try:
+        raw_data_df.columns = headers
+    except Exception as e:
+        print('Error: ',e)
+        print('Make sure the raw data headers are the same length as the number of columns and use legal characters')
+
+    raw_data_df.to_csv(csv_dest+'raw_data.csv',index = False)
+
+    #now we save the cleaned data
+    cleaned_data_headers = kwargs.get('cleaned_headers',[])
+    if cleaned_data_headers == []:
+        for i in range(positions_data_clean.shape[1]):
+            cleaned_data_headers.append('stake'+str(i)+'_x_position_meters')
+            cleaned_data_headers.append('stake'+str(i)+'_y_position_meters')
+    clean_data_df = pd.DataFrame(positions_data_clean)
+    
+    try:
+        clean_data_df.columns = cleaned_data_headers
+    except Exception as e:
+        print('Error: ',e)
+        print('Make sure the cleaned data headers are the same length as the number of columns and use legal characters')
+    
+    clean_data_df.to_csv(csv_dest+'cleaned_data.csv',index = False)
+
+    #now we save the graph to graph_dest
+    plot_wave_positions(positions_data_clean, graph_dest+'waveform_graph.png')
+    return
+
+
+
+
 
 if __name__ == '__main__':
-    # floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
-
     #unrectified_path = 'videos/floats_perp_4k_none.MP4'
-    unrectified_path = 'videos/floats_beach_4k_uv.MP4'
+    unrectified_path = 'videos/5k_perp_salmon.MP4'
     # num_stakes = 2
     # rect_path = 'videos/rectified_case.mp4'
 
@@ -333,10 +484,10 @@ if __name__ == '__main__':
     # fig.savefig('graph1.png')
 
     # np.save('array2.npy',positions[2:])
-    matrix_path = 'calibration/acortiz@colbydotedu_CALIB/camera_matrix_4k.npy'
-    dist_path = 'calibration/acortiz@colbydotedu_CALIB/dist_coeff_4k.npy'
-    graph_out = 'output_figures/test_raw_vid_unrec_floats_beach_4k.png'
-    positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 5,True, False)
-    np.save('output_data/test_4k_uv_beach.npy',positions)
-    plot_wave_positions(positions, graph_out)
+    matrix_path = 'calibration/acortiz@colbydotedu_CALIB/camera_matrix_5k.npy'
+    dist_path = 'calibration/acortiz@colbydotedu_CALIB/dist_coeff_5k.npy'
+    graph_out = 'output_figures/test_salmon_perp_5k.png'
+    # positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 5,False, False)
+    # np.save('output_data/test_5k_salmon.npy',positions)
+    # plot_wave_positions(positions, graph_out)
 

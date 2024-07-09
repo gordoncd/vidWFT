@@ -30,8 +30,8 @@ def extract_calibration_frames(filepath : str, nframes : int) ->list[np.ndarray]
     return frames
 
 if __name__ == '__main__':
-    calibration_frames = extract_calibration_frames('acortiz@colbydotedu_CALIB/gopro_4k_vid_calib.MP4',11)
+    calibration_frames = extract_calibration_frames('calibration/acortiz@colbydotedu_CALIB/gopro_5k_vid_calib.MP4',11)
     #save frames to their own images 
-    dest_folder = 'calibration/acortiz@colbydotedu_CALIB/calib_frames_4k/'
+    dest_folder = 'calibration/acortiz@colbydotedu_CALIB/calib_frames_5k/'
     for i, frame in enumerate(calibration_frames):
         cv2.imwrite(dest_folder + f'orthotest_frame_{i}.jpg', frame)
