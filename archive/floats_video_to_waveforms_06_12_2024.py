@@ -1,4 +1,5 @@
 '''
+NOTE: THIS IS AN ARCHIVED COPY OF THE ORIGINAL FILE -- some functions have been removed from the original because they are not used/working
 This file contains function for converting videos to waveforms
 NOTE: This script does NOT apply intrinsic matrices of the camera 
 to adjust for distortion
@@ -6,21 +7,22 @@ to adjust for distortion
 Author: Gordon Doore
 Created: 06/12/2024
 
-Last Modified: 07/01/2024
+Last Modified: 07/10/2024
 
 '''
 import cv2 #type:ignore
 import numpy as np #type: ignore
 import matplotlib.pyplot as plt #type: ignore
-import orthorec_06_03_2024 as orth
+import orthorec as orth
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Tuple, Sequence
 from collections.abc import Iterable
 import time
-from numba import jit
+from numba import jit #type: ignore
 import os
 import subprocess
 import pandas as pd
+import export 
 
 
 def rect_floats_video_to_waveform(rectified_video_path, ppm, num_stakes, 
@@ -328,143 +330,13 @@ def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coeff
 
     calibration_data = load_camera_calibration_data(matrix_path, distance_coefficient_path)
     return raw_video_to_waveform(video_path, calibration_data,num_stakes,track_every, show, save_cal)
-    
-def plot_wave_positions(arr : np.ndarray, path : str) -> None:
-    '''
-    plot wave positions based on array of shape (T,num_stakes,2)
-    '''
-    num_stakes : int = arr.shape[1]
-    fig : plt.Figure = plt.figure() #type: ignore
-    for i in range(num_stakes):
-        name : str = 'stake'+str(i)
-        plt.plot(np.squeeze(np.where(arr[:,i,1]!=0)),label = name)
-    plt.xlabel('Time')
-    plt.ylabel('Position (m)')
-    plt.legend()
-    fig.savefig(path)
-    return
-
-def extract_metadata_with_ffmpeg(video_path):
-    # Run ffmpeg command to extract metadata
-    cmd = ['ffmpeg', '-i', video_path, '-f', 'ffmetadata', '-']
-    result = subprocess.run(cmd, stderr=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
-    
-    # ffmpeg writes metadata to stderr
-    metadata_lines = result.stderr.split('\n')
-    metadata = {}
-    for line in metadata_lines:
-        if ': ' in line:
-            key, value = line.split(': ', 1)
-            metadata[key.strip()] = value.strip()
-    return metadata 
-
-def prepare_files(video_path : str, positions_data_raw: np.ndarray, positions_data_clean : np.ndarray, calibration_data : tuple, dest : str = '', **kwargs) -> None: 
-    '''
-    prepare output files from video to waveform
-
-    Args: 
-        video_path (str): path to unrectified video to be processed
-        calibration_data (tuple): tuple of ndarrays (matrix_data, dist_data)
-        dest (str): destination folder for output files
-
-    Returns:
-        None
-    '''
-
-    if dest == '':
-        #make unique name for output based on input parameters
-        dest = 'output_data/'+video_path.split('/')[-1].split('.')[0]+'_' #TODO: change this to something else
-    if not os.path.exists(dest):
-        os.makedirs(dest)
-    graph_dest = kwargs.get('graph_dest', dest)
-    csv_dest = kwargs.get('csv_dest', dest)
-    txt_dest = kwargs.get('txt_dest', dest)
-        
-    #now generate text to put to the txt file
-    #the file will include the video name, any metadata about that video, calibration data, the ppm for each stake
-
-    to_text = []
-    to_text.append("This file contains the output data from the video to waveform conversion")
-    to_text.append('_____________________________________________________________') 
-    to_text.append('Date: '+time.strftime('%m/%d/%Y'))
-    to_text.append('Time: '+time.strftime('%H:%M:%S'))
-    to_text.append('_____________________________________________________________')
-    to_text.append('Video Name: '+video_path)
-    #extract metadata from video: 
-    # Extract metadata from video using ffmpeg
-    video_metadata = extract_metadata_with_ffmpeg(video_path)
-    to_text.append('Video Metadata (Extracted with ffmpeg):')
-    for key, value in video_metadata.items():
-        to_text.append(f'{key}: {value}')
-    to_text.append('_____________________________________________________________')
-
-    mtx, dist = calibration_data
-    to_text.append('Calibration Matrix: \n' + str(mtx))
-    to_text.append('Distance Coefficients: \n' + str(dist))
-    to_text.append('_____________________________________________________________')
-    # floats_video_to_waveform('videos/noodle_float_move_rect.mp4',750,2)
-    #now save the text to a file at txt_dest
-    if os.path.exists(txt_dest+'output_data.txt'):
-        #ask for approval in command line to overwrite
-        print('File already exists at '+txt_dest+'/output_data.txt')
-        print('Do you want to overwrite this file?')
-        print('Type "y" to overwrite, anything else will cancel')
-        response = input()
-        if response == 'n':
-            return
-        if response == 'y':
-            print('Overwriting file...')
-    with open(txt_dest+'/output_data.txt', 'w') as f:
-        for line in to_text:
-            f.write(line+'\n')
-        f.close()
-
-    #we now convert waveform arrays to csv files with headers
-    #we will save these to csv_dest
-    #first we save the raw data
-    raw_data_df = pd.DataFrame(positions_data_raw)
-    #now define the headers: 
-    
-    headers = kwargs.get('raw_headers',[])
-    for i in range(positions_data_raw.shape[1]):
-        headers.append('stake'+str(i)+'_pixel_row')
-        headers.append('stake'+str(i)+'_pixel_col')
-
-    try:
-        raw_data_df.columns = headers
-    except Exception as e:
-        print('Error: ',e)
-        print('Make sure the raw data headers are the same length as the number of columns and use legal characters')
-
-    raw_data_df.to_csv(csv_dest+'raw_data.csv',index = False)
-
-    #now we save the cleaned data
-    cleaned_data_headers = kwargs.get('cleaned_headers',[])
-    if cleaned_data_headers == []:
-        for i in range(positions_data_clean.shape[1]):
-            cleaned_data_headers.append('stake'+str(i)+'_x_position_meters')
-            cleaned_data_headers.append('stake'+str(i)+'_y_position_meters')
-    clean_data_df = pd.DataFrame(positions_data_clean)
-    
-    try:
-        clean_data_df.columns = cleaned_data_headers
-    except Exception as e:
-        print('Error: ',e)
-        print('Make sure the cleaned data headers are the same length as the number of columns and use legal characters')
-    
-    clean_data_df.to_csv(csv_dest+'cleaned_data.csv',index = False)
-
-    #now we save the graph to graph_dest
-    plot_wave_positions(positions_data_clean, graph_dest+'waveform_graph.png')
-    return
-
-
 
 
 
 if __name__ == '__main__':
     #unrectified_path = 'videos/floats_perp_4k_none.MP4'
     unrectified_path = 'videos/5k_perp_salmon.MP4'
+    
     # num_stakes = 2
     # rect_path = 'videos/rectified_case.mp4'
 
@@ -486,7 +358,15 @@ if __name__ == '__main__':
     # np.save('array2.npy',positions[2:])
     matrix_path = 'calibration/acortiz@colbydotedu_CALIB/camera_matrix_5k.npy'
     dist_path = 'calibration/acortiz@colbydotedu_CALIB/dist_coeff_5k.npy'
-    graph_out = 'output_figures/test_salmon_perp_5k.png'
+    calibration_data = load_camera_calibration_data(matrix_path, dist_path)
+    export.prepare_files(unrectified_path,np.ones((1000,4)),calibration_data, 
+                np.arange(2), dest = 'output_data/test_salmon_perp_5k/', 
+                graph_dest = 'output_figures/test_salmon_perp_5k.png', 
+                raw_csv_dest = 'output_data/test_salmon_perp_5k/positions_raw.csv', 
+                clean_csv_dest = 'output_data/test_salmon_perp_5k/positions_clean.csv', 
+                txt_dest = 'output_data/test_salmon_perp_5k/metadata.txt',
+                raw_headers = ['one','two','red','blue'])
+    #graph_out = 'output_figures/test_salmon_perp_5k.png'
     # positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 5,False, False)
     # np.save('output_data/test_5k_salmon.npy',positions)
     # plot_wave_positions(positions, graph_out)

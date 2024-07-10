@@ -7,7 +7,7 @@ import pytest
 import numpy as np
 import cv2
 import dask.array as da
-from video_load_dask import Dask_Float_Tracker
+from archive.video_load_dask import Dask_Float_Tracker
 
 def test_Dask_Float_Tracker(video_path):
     '''

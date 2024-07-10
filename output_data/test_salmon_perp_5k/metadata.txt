@@ -1,7 +1,7 @@
 This file contains the output data from the video to waveform conversion
 _____________________________________________________________
-Date: 07/09/2024
-Time: 17:17:24
+Date: 07/10/2024
+Time: 13:43:15
 _____________________________________________________________
 Video Name: videos/5k_perp_salmon.MP4
 Video Metadata (Extracted with ffmpeg):
@@ -21,8 +21,24 @@ Stream #0:2(eng): Data: none (tmcd / 0x64636D74) (default)
 Stream #0:3(eng): Data: bin_data (gpmd / 0x646D7067), 49 kb/s (default)
 video:0kB audio:0kB subtitle:0kB other streams:0kB global headers:0kB muxing overhead: unknown
 _____________________________________________________________
-Calibration Matrix: [[2.74770576e+03 0.00000000e+00 2.69106140e+03]
+Number of Stakes: 2
+
+Calibration Matrix: 
+[[2.74770576e+03 0.00000000e+00 2.69106140e+03]
  [0.00000000e+00 2.57060519e+03 1.41024448e+03]
  [0.00000000e+00 0.00000000e+00 1.00000000e+00]]
-Distance Coefficients: [[ 0.02520614 -0.05013145 -0.00245631 -0.0017176   0.0472213 ]]
+
+Distance Coefficients: 
+[[ 0.02520614 -0.05013145 -0.00245631 -0.0017176   0.0472213 ]]
+
+ppm for each stake: 
+stake_0: 0
+stake_1: 1
+_____________________________________________________________
+Additional Parameters: 
+graph_dest: output_data/test_salmon_perp_5k.png
+raw_csv_dest: output_data/test_salmon_perp_5k/positions_raw.csv
+clean_csv_dest: output_data/test_salmon_perp_5k/positions_clean.csv
+txt_dest: output_data/test_salmon_perp_5k/metadata.txt
+raw_headers: ['one', 'two', 'red', 'blue']
 _____________________________________________________________

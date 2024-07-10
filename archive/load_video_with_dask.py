@@ -1,12 +1,12 @@
 import cv2 #type:ignore
 import numpy as np #type: ignore
 import matplotlib.pyplot as plt #type: ignore
-import orthorec_06_03_2024 as orth
+import orthorec as orth
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Tuple
 from collections.abc import Iterable
 import time
-from floats_video_to_waveforms_06_12_2024 import tracker_init, trackers_update
+from video_to_waveform_floats import tracker_init, trackers_update
 from dask import array as da
 from dask import delayed
 
