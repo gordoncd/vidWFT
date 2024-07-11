@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Tuple
 from collections.abc import Iterable
 import time
-from video_to_waveform_floats import tracker_init, trackers_update
+from vid2wav import tracker_init, trackers_update
 from dask import array as da
 from dask import delayed
 from tqdm import tqdm
