@@ -130,8 +130,7 @@ def clean_raw_positions(raw_positions : np.ndarray, **kwargs) -> np.ndarray:
     sampled_positions = raw_positions[np.where(raw_positions[:,:,1]!=0)]
     #now add a time column; just go by index for now 
     time = np.argwhere(raw_positions[:,0,1]!=0)
-
-
+    
     #center around mean 
 
 
