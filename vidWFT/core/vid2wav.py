@@ -10,20 +10,26 @@ Created: 06/12/2024
 Last Modified: 07/01/2024
 
 '''
+import os
+import sys
 import cv2 #type:ignore
 import numpy as np #type: ignore
 import matplotlib.pyplot as plt #type: ignore
+
+current_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(current_dir)
+
 import orthorec as orth
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Callable, Tuple, Sequence
 from collections.abc import Iterable
 import time
 from numba import jit #type: ignore
-import os
 import subprocess
 import pandas as pd
 import export 
 from tracker import tracker_init, trackers_update
+from calibrate import load_camera_calibration_data
 
 def crop_frame(frame: np.ndarray, roi: Sequence[int]) -> np.ndarray:
     '''
@@ -38,6 +44,43 @@ def crop_frame(frame: np.ndarray, roi: Sequence[int]) -> np.ndarray:
     '''
     x, y, w, h = roi
     return frame[y:y+h, x:x+w]
+
+def calculate_window_around_float(float_position: Tuple[int,int,int,int],frame_dims : Tuple[int,int], ppm, max_wave_height: int = 0.5) -> Tuple[int,int,int,int]:
+    '''
+    calculate window around float
+    '''
+    x, y, w, h = float_position
+    #use ppm to estimate how big the window should be in pixel space
+    #ppm is the pixel per meter for a particular stake
+    #we use this to estimate the size of the window in meters
+    #we want to be handily larger than the max_wave_height 
+    #so we multiply by 2
+    window_width = w*2
+    window_height = ppm*max_wave_height*2
+
+    #now since x,y,w,h are the corner of the float, we want to shift this
+    #first we account for negative w or h values by converting x and y appropriately
+    if w < 0:
+        x += w
+        w = -w #this may be wrong
+    if h < 0: 
+        y += h
+        h = -h
+    #now we want to center the window around the float
+    x -= window_width/2
+    if x<0:
+        x=0
+    y -= window_height/2
+    if y<0:
+        y=0
+
+    #if x and y are greater than the frame size, we want to shift them back
+    if x + window_width > frame_dims[0]:
+        x = frame_dims[0] - window_width
+    if y + window_height > frame_dims[1]:
+        y = frame_dims[1] - window_height
+
+    return (int(x), int(y), int(window_width), int(window_height))
 
 def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes : int, track_every : int, show : bool = True, save_cal : bool = False) -> np.ndarray:
     '''
@@ -127,24 +170,16 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
     cv2.destroyAllWindows()
     return position_real_space
 
-def load_camera_calibration_data(matrix_path : str, distance_coefficient_path : str) -> tuple[Any,Any]:
+def cropped_v2w():
     '''
-    load calibration matrices. Helper function for `test_raw_video_to_waveform()`
-
-    Args:
-        matrix_path (str): path to camera calibration matrix
-        distance_coefficient_path (str): path to distance coefficent matrix
-
-    Returns:
-        matrix_array (np.ndarray): array of camera calibration matrix
-        distance_coefficient_array (np.ndarray): array of distance coefficeint matrix
+    cropped video to waveform
     '''
-    return np.load(matrix_path), np.load(distance_coefficient_path)
+    pass
 
 def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coefficient_path : str, num_stakes: int, track_every : int, show : bool, save_cal : bool) ->np.ndarray:
     '''
     test for `raw_video_to_waveform()` gets calibration data and runs the calibration/waveform function
-
+    NOTE: This may be moved and/or is not actually needed
     Args:
         video_path (str): path to unrectified video to be processed
         matrix_path (str): path to camera matrix array
