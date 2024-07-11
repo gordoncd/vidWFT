@@ -3,3 +3,4 @@ videos/*.mp4
 videos/*.MP4
 mypy.ini
 *.mp4
+*.ipynb
