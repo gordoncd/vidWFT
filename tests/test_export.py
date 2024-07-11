@@ -8,7 +8,7 @@ parent_dir = os.path.dirname(current_dir)
 sys.path.insert(0, parent_dir)
 
 # Now you can import the export module
-from export import plot_wave_positions, extract_metadata_with_ffmpeg, write_metadata_to_txt, data_np_to_csv, prepare_files
+from vidWFT.core.export import plot_wave_positions, extract_metadata_with_ffmpeg, write_metadata_to_txt, data_np_to_csv, prepare_files
 
 
 def test_plot_wave_positions():
@@ -19,7 +19,7 @@ def test_plot_wave_positions():
     os.remove(path)
 
 def test_extract_metadata_with_ffmpeg():
-    metadata = extract_metadata_with_ffmpeg('/Users/gordondoore/Documents/GitHub/waves-summer-2024/videos/5k_perp_salmon.MP4')
+    metadata = extract_metadata_with_ffmpeg('/Users/gordondoore/Documents/GitHub/vidWFT/videos/5k_perp_salmon.MP4')
     assert metadata['major_brand'] == 'mp41'
     assert metadata['minor_version'] == '538120216'
     assert metadata['compatible_brands'] == 'mp41'
