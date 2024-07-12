@@ -90,7 +90,7 @@ def calculate_window_around_float(float_position: Tuple[int,int,int,int],frame_d
 
     return (int(x), int(y), int(window_width), int(window_height))
 
-def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes : int, track_every : int, show : bool = True, save_cal : bool = False) -> np.ndarray:
+def raw_v2w(video_path : str, calibration_data : tuple, num_stakes : int, track_every : int, show : bool = True, save_cal : bool = False) -> np.ndarray:
     '''
     converts raw (uncalibrated) video to waveform
 
@@ -178,10 +178,84 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
     cv2.destroyAllWindows()
     return position_real_space
 
-def cropped_v2w():
+def cropped_v2w(video_path : str, calibration_data : tuple, num_stakes : int, track_every : int, show : bool = True, save_cal : bool = False) -> np.ndarray:
     '''
+    mess not done with this yet
     cropped video to waveform
     '''
+    #open video 
+    cap = cv2.VideoCapture(video_path)
+    mtx, dist = calibration_data
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    #UNDISTORT HERE MAYBE
+    
+    #get ppm on undistorted fr
+    # ame: 
+    all_points, all_lines = orth.define_stakes(frame,num_stakes)
+    all_points_arr = np.array(all_points)
+    #assuming the user chooses points corresponding to the gradations
+    #we use this to save the ppm for each stake:
+    ppm = np.linalg.norm(all_points_arr[:,0]-all_points_arr[:,1],axis = 1) #type: ignore
+
+    #define floats to track
+    trackers, bboxes = tracker_init(frame,num_stakes)
+    croppings = [calculate_window_around_float(bbox,frame.shape[:2],ppm) for bbox in bboxes]
+    #redefine trackers with cropped frames; 
+
+    position = np.zeros((total_frames, num_stakes, 2))
+    #apply calibration: 
+    while ret:
+        start_time = time.time()
+        loop_start = start_time
+        ret, frame = cap.read()
+        io_time = time.time() - start_time
+        current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+        if current_frame % track_every != 0 or frame is None: 
+            continue
+        
+        height, width = frame.shape[:2]
+
+        # Start timer
+        start_time = time.time()
+
+        #UNDISTORT HERE MAYBE
+        
+        # Start timer for trackers_update
+        start_time = time.time()
+        
+        trackers_update(trackers, frame, current_frame, position)
+        
+        # Calculate trackers_update time
+        trackers_update_time = time.time() - start_time
+        
+        if show:
+            cv2.imshow('Tracking', frame)
+            if cv2.waitKey(1) & 0xFF == 27:  # ESC key to break
+                break
+        
+        # Calculate total loop time
+        total_loop_time = time.time() - loop_start
+        
+        # Calculate proportion of total loop time for each chunk
+        io_proportion = io_time / total_loop_time
+        #undistort_frame_proportion = cv2_undistort_time / total_loop_time
+        trackers_update_proportion = trackers_update_time / total_loop_time
+        
+        # Print the proportions
+        print("I/O Proportion:",io_proportion)
+        #print("Undistort Frame Proportion:", undistort_frame_proportion)
+        print("Trackers Update Proportion:", trackers_update_proportion)
+
+    
+    #apply derived ppm to the positions: 
+    position_real_space : np.ndarray = position/np.reshape(ppm,(1,4,1))
+        
+    cap.release()
+    cv2.destroyAllWindows()
+    return position_real_space
+
+
     pass
 
 def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coefficient_path : str, num_stakes: int, track_every : int, show : bool, save_cal : bool) ->np.ndarray:
@@ -202,7 +276,7 @@ def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coeff
     '''
 
     calibration_data = load_camera_calibration_data(matrix_path, distance_coefficient_path)
-    return raw_video_to_waveform(video_path, calibration_data,num_stakes,track_every, show, save_cal)
+    return raw_v2w(video_path, calibration_data,num_stakes,track_every, show, save_cal)
 
 
 
