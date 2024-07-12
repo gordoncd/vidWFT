@@ -12,3 +12,4 @@ pytest-metadata=3.1.1=pypi_0
 scikit-image=0.19.3=py39hcec6c5f_1
 tqdm=4.64.0=py39hecd8cb5_0
 types-tqdm=4.66.0.20240417=pypi_0
+oceanlyz=2.0.0=pypi_0

@@ -31,7 +31,7 @@ import export
 from tracker import tracker_init, trackers_update
 from calibrate import load_camera_calibration_data
 
-def crop_frame(frame: np.ndarray, roi: Sequence[int]) -> np.ndarray:
+def crop_frame(frame: np.ndarray, roi: Tuple[int,int,int,int]) -> np.ndarray:
     '''
     crop frame to region of interest
     
@@ -48,6 +48,14 @@ def crop_frame(frame: np.ndarray, roi: Sequence[int]) -> np.ndarray:
 def calculate_window_around_float(float_position: Tuple[int,int,int,int],frame_dims : Tuple[int,int], ppm, max_wave_height: int = 0.5) -> Tuple[int,int,int,int]:
     '''
     calculate window around float
+
+    Args:
+        float_position (Tuple[int,int,int,int]): position of the float
+        frame_dims (Tuple[int,int]): dimensions of the frame
+        ppm (float): pixel per meter
+        max_wave_height (int): maximum wave height
+    Returns: 
+        Tuple[int,int,int,int]: window around the float
     '''
     x, y, w, h = float_position
     #use ppm to estimate how big the window should be in pixel space
@@ -95,7 +103,7 @@ def raw_video_to_waveform(video_path : str, calibration_data : tuple, num_stakes
         save_cal (bool): whether or not to save calibrated video
 
     Returns: 
-        positions (np.ndarray): positions of tracked floats over the input video 
+        np.ndarray: positions of tracked floats over the input video 
     '''
     #open video 
     cap = cv2.VideoCapture(video_path)

@@ -84,6 +84,12 @@ def generate_figures(raw_positions : np.ndarray, path : str) -> None:
         path (str): path to save graph
     '''
     #TODO
+    cleaned_positions = clean_raw_positions(raw_positions)
+    #cleaned positions is an array of shape (T,num_stakes+1) containing only the y converted value of the positions and the time
+    plot_wave_positions(cleaned_positions, path)
+    #now we also want to generate spectrograms of each wave on the same figure
+    #we will use the y values for this
+    
     pass
 
 def data_np_to_csv(data : np.ndarray, dest : str,header_string:str, index : bool = False,  **kwargs) -> None:
