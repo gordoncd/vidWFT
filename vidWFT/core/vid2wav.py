@@ -29,7 +29,8 @@ import subprocess
 import pandas as pd
 import export 
 from tracker import tracker_init, trackers_update
-from calibrate import load_camera_calibration_data
+from calibrate import load_camera_calibration_data, undistort_video, crop_and_undistort, crop_video
+from tqdm import tqdm
 
 def crop_frame(frame: np.ndarray, roi: Tuple[int,int,int,int]) -> np.ndarray:
     '''
@@ -113,70 +114,73 @@ def raw_v2w(video_path : str, calibration_data : tuple, num_stakes : int, track_
     #on the first frame undistort and then select ppm
     ret, frame = cap.read()
     #get time to do this: 
-    undistorted_frame = cv2.undistort(frame, mtx, dist, None, mtx)
+    # undistorted_frame = cv2.undistort(frame, mtx, dist, None, mtx)
     
     #get ppm on undistorted frame: 
-    all_points, all_lines = orth.define_stakes(undistorted_frame,num_stakes)
+    all_points, all_lines = orth.define_stakes(frame,num_stakes)
     all_points_arr = np.array(all_points)
     #assuming the user chooses points corresponding to the gradations
     #we use this to save the ppm for each stake:
     ppm = np.linalg.norm(all_points_arr[:,0]-all_points_arr[:,1],axis = 1) #type: ignore
 
     #define floats to track
-    trackers, _ = tracker_init(undistorted_frame,num_stakes)
+    trackers, _ = tracker_init(frame,num_stakes)
     position = np.zeros((total_frames, num_stakes, 2))
     #apply calibration: 
-    while ret:
-        start_time = time.time()
-        loop_start = start_time
-        ret, frame = cap.read()
-        io_time = time.time() - start_time
-        current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
-        if current_frame % track_every != 0 or frame is None: 
-            continue
-        
-        height, width = frame.shape[:2]
+    with tqdm(total=total_frames) as pbar:
+        while ret:
+            start_time = time.time()
+            loop_start = start_time
+            ret, frame = cap.read()
+            io_time = time.time() - start_time
+            current_frame = int(cap.get(cv2.CAP_PROP_POS_FRAMES)) - 1
+            if current_frame % track_every != 0 or frame is None: 
+                continue
+            
+            height, width = frame.shape[:2]
 
-        # Start timer
-        start_time = time.time()
+            # Start timer
+            start_time = time.time()
 
-        #cv2 undistort
-        undistorted_frame = cv2.undistort(frame, mtx, dist, None, mtx)
-        cv2_undistort_time = time.time() - start_time
-        
-        # Start timer for trackers_update
-        start_time = time.time()
-        
-        trackers_update(trackers, undistorted_frame, current_frame, position)
-        
-        # Calculate trackers_update time
-        trackers_update_time = time.time() - start_time
-        
-        if show:
-            cv2.imshow('Tracking', undistorted_frame)
-            if cv2.waitKey(1) & 0xFF == 27:  # ESC key to break
-                break
-        
-        # Calculate total loop time
-        total_loop_time = time.time() - loop_start
-        
-        # Calculate proportion of total loop time for each chunk
-        io_proportion = io_time / total_loop_time
-        undistort_frame_proportion = cv2_undistort_time / total_loop_time
-        trackers_update_proportion = trackers_update_time / total_loop_time
-        
-        # Print the proportions
-        print("I/O Proportion:",io_proportion)
-        print("Undistort Frame Proportion:", undistort_frame_proportion)
-        print("Trackers Update Proportion:", trackers_update_proportion)
+            #cv2 undistort
+            # undistorted_frame = cv2.undistort(frame, mtx, dist, None, mtx)
+            # cv2_undistort_time = time.time() - start_time
+            
+            # Start timer for trackers_update
+            start_time = time.time()
+            
+            trackers_update(trackers, frame, current_frame, position)
+            
+            # Calculate trackers_update time
+            trackers_update_time = time.time() - start_time
+            
+            if show:
+                cv2.imshow('Tracking', frame)
+                if cv2.waitKey(1) & 0xFF == 27:  # ESC key to break
+                    break
+            
+            # Calculate total loop time
+            total_loop_time = time.time() - loop_start
+            
+            # Calculate proportion of total loop time for each chunk
+            io_proportion = io_time / total_loop_time
+            # undistort_frame_proportion = cv2_undistort_time / total_loop_time
+            trackers_update_proportion = trackers_update_time / total_loop_time
+            
+            # # Print the proportions
+            # print("I/O Proportion:",io_proportion)
+            # # print("Undistort Frame Proportion:", undistort_frame_proportion)
+            # print("Trackers Update Proportion:", trackers_update_proportion)
+            
+            pbar.update(1)
 
     
     #apply derived ppm to the positions: 
-    position_real_space : np.ndarray = position/np.reshape(ppm,(1,4,1))
+    position_real_space : np.ndarray = position/np.reshape(ppm,(1,num_stakes,1))
         
     cap.release()
     cv2.destroyAllWindows()
-    return position_real_space
+    return position_real_space, ppm
 
 def cropped_v2w(video_path : str, calibration_data : tuple, num_stakes : int, track_every : int, show : bool = True, save_cal : bool = False) -> np.ndarray:
     '''
@@ -249,7 +253,7 @@ def cropped_v2w(video_path : str, calibration_data : tuple, num_stakes : int, tr
 
     
     #apply derived ppm to the positions: 
-    position_real_space : np.ndarray = position/np.reshape(ppm,(1,4,1))
+    position_real_space : np.ndarray = position/np.reshape(ppm,(1,num_stakes,1))
         
     cap.release()
     cv2.destroyAllWindows()
@@ -282,39 +286,62 @@ def test_raw_video_to_waveform(video_path : str,matrix_path : str,distance_coeff
 
 if __name__ == '__main__':
     #unrectified_path = 'videos/floats_perp_4k_none.MP4'
-    unrectified_path = 'videos/5k_perp_salmon.MP4'
-    
-    # num_stakes = 2
-    # rect_path = 'videos/rectified_case.mp4'
+    # unrectified_path = 'videos/5k_perp_salmon.MP4'
+    unrectified_path = 'videos/pingpong.mp4'
+    # # num_stakes = 2
+    # # rect_path = 'videos/rectified_case.mp4'
 
-    # positions,ppm = unrectified_to_waveform(unrectified_path, num_stakes, show = True, track_every = 5)
-    # print(positions)
-    # print(type(positions))
-    # print(ppm)
-    # framerate = 30 
-    # # Plot the y coordinates through time
-    # fig = plt.figure()
-    # for i in range(num_stakes):
-    #     name = 'stake '+str(i)
-    #     plt.plot(np.arange(positions[2:,i,1].shape[0])/framerate,positions[2:,i,1],label = name)
-    # plt.xlabel('Time')
-    # plt.ylabel('Position')
-    # plt.legend()
-    # fig.savefig('graph1.png')
+    # # positions,ppm = unrectified_to_waveform(unrectified_path, num_stakes, show = True, track_every = 5)
+    # # print(positions)
+    # # print(type(positions))
+    # # print(ppm)
+    # # framerate = 30 
+    # # # Plot the y coordinates through time
+    # # fig = plt.figure()
+    # # for i in range(num_stakes):
+    # #     name = 'stake '+str(i)
+    # #     plt.plot(np.arange(positions[2:,i,1].shape[0])/framerate,positions[2:,i,1],label = name)
+    # # plt.xlabel('Time')
+    # # plt.ylabel('Position')
+    # # plt.legend()
+    # # fig.savefig('graph1.png')
 
-    # np.save('array2.npy',positions[2:])
+    # # np.save('array2.npy',positions[2:])
+    # matrix_path = 'calibration/acortiz@colbydotedu_CALIB/camera_matrix_5k.npy'
+    # dist_path = 'calibration/acortiz@colbydotedu_CALIB/dist_coeff_5k.npy'
+    # calibration_data = load_camera_calibration_data(matrix_path, dist_path)
+    # # export.prepare_files(unrectified_path,np.ones((1000,4)),calibration_data, 
+    # #             np.arange(2), dest = 'output_data/test_salmon_perp_5k/', 
+    # #             graph_dest = 'output_data/test_salmon_perp_5k.png', 
+    # #             raw_csv_dest = 'output_data/test_salmon_perp_5k/positions_raw.csv', 
+    # #             clean_csv_dest = 'output_data/test_salmon_perp_5k/positions_clean.csv', 
+    # #             txt_dest = 'output_data/test_salmon_perp_5k/metadata.txt',
+    # #             raw_headers = ['one','two','red','blue'])
+    # #graph_out = 'output_figures/test_salmon_perp_5k.png'
+    # # positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 5,False, False)
+    # # np.save('output_data/test_5k_salmon.npy',positions)
+    # # plot_wave_positions(positions, graph_out)
+    # undistort_video(unrectified_path, calibration_data[0], calibration_data[1], 'videos/undistorted_salmon_perp_5k.mp4')
+
+
+
+    video_path = 'videos/cropped_and_undistorted.mp4'
+    # video_path = 'videos/floats_perp_5k_none.MP4'
+    # video_path = 'videos/pingpong.mp4'
     matrix_path = 'calibration/acortiz@colbydotedu_CALIB/camera_matrix_5k.npy'
     dist_path = 'calibration/acortiz@colbydotedu_CALIB/dist_coeff_5k.npy'
-    calibration_data = load_camera_calibration_data(matrix_path, dist_path)
-    export.prepare_files(unrectified_path,np.ones((1000,4)),calibration_data, 
-                np.arange(2), dest = 'output_data/test_salmon_perp_5k/', 
-                graph_dest = 'output_data/test_salmon_perp_5k.png', 
-                raw_csv_dest = 'output_data/test_salmon_perp_5k/positions_raw.csv', 
-                clean_csv_dest = 'output_data/test_salmon_perp_5k/positions_clean.csv', 
-                txt_dest = 'output_data/test_salmon_perp_5k/metadata.txt',
-                raw_headers = ['one','two','red','blue'])
-    #graph_out = 'output_figures/test_salmon_perp_5k.png'
-    # positions = test_raw_video_to_waveform(unrectified_path,matrix_path, dist_path, 2, 5,False, False)
-    # np.save('output_data/test_5k_salmon.npy',positions)
-    # plot_wave_positions(positions, graph_out)
+
+    # #get first frame from video_path
+    # cap = cv2.VideoCapture(video_path)
+    # ret, frame = cap.read()
+    # cap.release()
+    # crop_region =  (500,1300,4000,650)
+    # output_path = 'videos/cropped_and_undistorted.mp4'
+
+    # crop_video(video_path, output_path, crop_region)
+    positions, ppm = raw_v2w(video_path, load_camera_calibration_data(matrix_path, dist_path), 2, 1, False, False)
+    np.save('output_data/test_salmon_perp_5k/positions_backup.npy',positions)
+    export.prepare_files(video_path, positions, load_camera_calibration_data(matrix_path, dist_path),ppm, dest = 'output_data/test_salmon_perp_5k_each_frame/')
+
+
 

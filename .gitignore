@@ -4,3 +4,4 @@ videos/*.MP4
 mypy.ini
 *.mp4
 *.ipynb
+data/*

@@ -1,7 +1,7 @@
 This file contains the output data from the video to waveform conversion
 _____________________________________________________________
-Date: 07/19/2024
-Time: 09:25:49
+Date: 07/21/2024
+Time: 16:59:08
 _____________________________________________________________
 Video Name: videos/cropped_and_undistorted.mp4
 Video Metadata (Extracted with ffmpeg):
@@ -26,8 +26,8 @@ Distance Coefficients:
 [[ 0.02520614 -0.05013145 -0.00245631 -0.0017176   0.0472213 ]]
 
 ppm for each stake: 
-stake_0: 124.33856045769991
-stake_1: 51.302116148021746
+stake_0: 124.2209929369679
+stake_1: 44.89772581633265
 _____________________________________________________________
 Additional Parameters: 
 _____________________________________________________________

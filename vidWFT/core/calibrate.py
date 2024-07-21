@@ -10,6 +10,7 @@ import cv2
 import glob
 import yaml #type: ignore
 import os
+import tqdm
 
 def calibrate_camera(src : str, dest : str, base_filename : str = '', chessboard_size : tuple = (6,9), show = False, verbose = False):
     '''
@@ -140,7 +141,189 @@ def extract_calibration_frames(filepath : str, nframes : int) ->list[np.ndarray]
     cap.release()
     return frames
 
+def undistort_video(filepath : str, mtx : np.ndarray, dist : np.ndarray, save_path : str, show = False):
+    '''
+    undistort video using camera matrix and distance coefficients
+
+    Args: 
+        filepath (str): path to video file
+        mtx (np.ndarray): camera matrix
+        dist (np.ndarray): distance coefficients
+        save_path (str): path to save undistorted video
+        show (bool): whether to show undistorted video
+    '''
+    cap = cv2.VideoCapture(filepath)
+    
+    # Get the video properties
+    frame_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    fps = cap.get(cv2.CAP_PROP_FPS)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    
+    # Create the VideoWriter object
+    out = cv2.VideoWriter(save_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (frame_width, frame_height))
+    
+    pbar = tqdm.tqdm(total=total_frames)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if ret:
+            # Undistort the frame
+            dst = cv2.undistort(frame, mtx, dist, None)
+            
+            # Write the undistorted frame to the output video
+            out.write(dst)
+            
+            if show:
+                cv2.imshow('frame', dst)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            pbar.update(1)
+        else:
+            break
+    pbar.close()
+    
+    # Release the resources
+    cap.release()
+    out.release()
+    cv2.destroyAllWindows()
+
+def crop_and_undistort(video_path, matrix_path, dist_path, crop_region, output_path):
+    # Load camera calibration data
+    camera_matrix = np.load(matrix_path)
+    print(camera_matrix)
+    dist_coeffs = np.load(dist_path)
+
+    # Open the video
+    cap = cv2.VideoCapture(video_path)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    W = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    H = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+    # Define the crop region (x, y, width, height)
+    x, y, w, h = crop_region
+
+    # Define the codec and create VideoWriter object to save the video
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    out = cv2.VideoWriter(output_path, fourcc, 30.0, (w, h))
+
+    camera_matrix, dist_coeffs = adjust_calibration_matrices(camera_matrix, dist_coeffs, crop_region, W, H)
+    print(camera_matrix)
+    pbar = tqdm.tqdm(total=total_frames)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Crop the frame
+        cropped_frame = frame[y:y+h, x:x+w]
+
+        # Undistort the cropped frame
+        undistorted_frame = cv2.undistort(cropped_frame, camera_matrix, dist_coeffs, None)
+        # Write the frame
+        out.write(undistorted_frame)
+
+        pbar.update(1)
+    pbar.close()
+
+    # Release everything if job is finished
+    cap.release()
+    out.release()
+
+def adjust_calibration_matrices(camera_matrix, dist_coeffs, crop_region, W, H):
+    '''
+    adjust camera matrix and distance coefficients to account for cropping
+
+    Args: 
+        camera_matrix (np.ndarray): camera matrix
+        distances (np.ndarray): distance coefficients
+    '''
+    x, y, w, h = crop_region
+
+    # # Get focal lengths and principal point from camera matrix
+    # f_x = camera_matrix[0, 0]
+    # f_y = camera_matrix[1, 1]
+    # c_x = camera_matrix[0, 2]
+    # c_y = camera_matrix[1, 2]
+
+    # # Compute new principal point for the cropped region
+    # c_x_crop = c_x - x
+    # c_y_crop = c_y - y
+
+    # # Compute new focal lengths (adjusted for cropping)
+    # f_x_crop = f_x * (w / camera_matrix[0, 2])
+    # f_y_crop = f_y * (h / camera_matrix[1, 2])
+
+    # # New camera matrix for the cropped region
+    # K_crop = np.array([[f_x_crop, 0, c_x_crop],
+    #                 [0, f_y_crop, c_y_crop],
+    #                 [0, 0, 1]])
+
+    # return K_crop, dist_coeffs
+        # Unpack the crop region
+    x, y, w, h = crop_region
+
+    # Copy the original camera matrix to avoid modifying it directly
+    adjusted_camera_matrix = camera_matrix.copy()
+
+    # Adjust the principal point based on the crop
+    adjusted_camera_matrix[0, 2] -= x  # cx adjusted
+    adjusted_camera_matrix[1, 2] -= y  # cy adjusted
+
+    # No adjustment needed for distortion coefficients in most cases
+    # If needed, this would be the place to do it
+
+    return adjusted_camera_matrix, dist_coeffs
+
+def crop_video(src, dest, crop_region):
+    '''
+    
+    '''
+    cap = cv2.VideoCapture(src)
+    total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+    # Define the crop region (x, y, width, height)
+    x, y, w, h = crop_region
+
+    # Define the codec and create VideoWriter object to save the video
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+
+    out = cv2.VideoWriter(dest, fourcc, 30.0, (w, h))
+
+    pbar = tqdm.tqdm(total=total_frames)
+    while cap.isOpened():
+        ret, frame = cap.read()
+        if not ret:
+            break
+
+        # Crop the frame
+        cropped_frame = frame[y:y+h, x:x+w]
+
+        # Check if the cropped frame is not empty
+        if cropped_frame.size != 0:
+            # Write the frame
+            out.write(cropped_frame)
+
+        pbar.update(1)
+    
+    pbar.close()
+    cap.release()
+    out.release()
+
+
 
 if __name__ == '__main__':
-    calibrate_camera('calibration/acortiz@colbydotedu_CALIB/calib_frames_5k','calibration/acortiz@colbydotedu_CALIB/hmm','5k_', (7,9))
+    import cv2
+    #calibrate_camera('calibration/acortiz@colbydotedu_CALIB/calib_frames_5k','calibration/acortiz@colbydotedu_CALIB/hmm','5k_', (7,9))
+   # Example usage
+    video_path = 'videos/5k_perp_salmon.MP4'
+    matrix_path = 'calibration/acortiz@colbydotedu_CALIB/camera_matrix_5k.npy'
+    dist_path = 'calibration/acortiz@colbydotedu_CALIB/dist_coeff_5k.npy'
 
+    #get first frame from video_path
+    cap = cv2.VideoCapture(video_path)
+    ret, frame = cap.read()
+    cap.release()
+    crop_region = cv2.selectROI(frame)
+    output_path = 'output_data/cropped_and_undistorted.mp4'
+
+    crop_and_undistort(video_path, matrix_path, dist_path, crop_region, output_path)

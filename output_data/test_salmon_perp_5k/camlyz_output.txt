@@ -1,0 +1,92 @@
+--------------------------------------------------
+OCEANLYZ Ver 2.0
+www.ArashKarimpour.com
+Copyright (C) 2012 - 2024  Arash Karimpour
+--------------------------------------------------
+Parameters (only required ones used)
+--------------------------------------------------
+InputType           :  waterlevel
+OutputType          :  wave
+-------------------------------
+AnalysisMethod      :  spectral
+-------------------------------
+n_burst             :  3
+burst_duration      :  380
+fs                  :  6
+-------------------------------
+fmin                :  0.01
+fmax                :  3.0
+-------------------------------
+fmaxpcorrCalcMethod :  auto
+Kpafterfmaxpcorr    :  constant
+fminpcorr           :  3.0
+fmaxpcorr           :  3.0
+heightfrombed       :  0.0
+-------------------------------
+dispout             :  yes
+-------------------------------
+Rho                 :  1000
+nfft                :  512
+-------------------------------
+SeparateSeaSwell    :  no
+fpminswell          :  0.1
+fmaxswell           :  0.25
+-------------------------------
+tailcorrection      :  off
+ftailcorrection     :  0.9
+tailpower           :  -5
+--------------------------------------------------
+Calculation Method: module=1
+Description       : Calculate wave parameters
+Calculation Method: spectral analysis
+Input Data        : water depth or surface elevation data
+Output            : wave parameters
+--------------------------------------------------
+Calculating wave properties
+--------------------------------------------------
+Burst = 1
+m0        = 0.0074882707
+m1        = 0.0063165453
+m2        = 0.0065711424
+Hm0       = 0.3461391791
+Tm01      = 1.1855009931
+Tm02      = 1.0675060086
+Tp        = 1.2549019608
+fp        = 0.7614230741
+--------------------------------------------------
+Burst = 2
+m0        = 0.0053340792
+m1        = 0.0049300756
+m2        = 0.0054189062
+Hm0       = 0.2921391238
+Tm01      = 1.0819467433
+Tm02      = 0.9921421791
+Tp        = 0.9922480620
+fp        = 0.8925662880
+--------------------------------------------------
+Burst = 3
+m0        = 0.0050885492
+m1        = 0.0045674992
+m2        = 0.0049796560
+Hm0       = 0.2853362706
+Tm01      = 1.1140777330
+Tm02      = 1.0108746791
+Tp        = 1.7777777778
+fp        = 0.6497584715
+--------------------------------------------------
+Output is a Python dictionary named "obj.wave"
+Values(s) in a dictionary "wave" can be called by using "key"
+Example: Output for a peak wave period is : "obj.wave["Tp"]"
+Key names may be obtained from obj.wave.keys() command
+Also, obj.wave["Field_Names"] contains key names in the wave dictionary
+Output key (field) names are
+Hm0
+Tp
+fp
+f
+Syy
+Burst_Data
+Field_Names
+--------------------------------------------------
+Calculation finished
+--------------------------------------------------

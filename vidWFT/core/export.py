@@ -100,6 +100,8 @@ def data_np_to_csv(data : np.ndarray, dest : str,header_string:str, index : bool
         data (np.ndarray): data to be converted
         dest (str): destination path for csv file
     '''
+    if len(data.shape) == 3:
+        data = np.reshape(data, (data.shape[0],data.shape[1]*data.shape[2]))
     #first we save the raw data
     df = pd.DataFrame(data)
     #now define the headers: 
