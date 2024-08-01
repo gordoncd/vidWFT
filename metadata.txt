@@ -1,6 +1,0 @@
-;FFMETADATA1
-major_brand=mp41
-minor_version=538120216
-compatible_brands=mp41
-firmware=H23.01.02.20.00
-encoder=Lavf58.45.100

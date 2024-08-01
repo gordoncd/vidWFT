@@ -349,7 +349,7 @@ def rectify_video_by_gradation(input_video_path : str, output_video_path : str, 
 
     Returns: 
         None
-
+w
     '''
     # Load the video
     cap = cv2.VideoCapture(input_video_path)
