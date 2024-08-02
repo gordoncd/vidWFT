@@ -41,11 +41,19 @@ Gordon Doore (with guidance from Professor Alejandra C. Ortiz)
 
 # Documentation
 
-Further documentation for all functions, objects, and files in vidWFT can be found in the `docs` directory or [here](LINK TO POSTED DOCUMENTATION).
+Further documentation for all functions, objects, and files in vidWFT can be found by navigating to the `docs` directory.
+
+**NOTE:** portions of the documentation are generated using GitHub Copilot.  The entire workspace was used so that code snippets should be derived directly from the code written by the author, but examples should be taken with a grain of salt.  Refer to the source code if something seems awry with an example.
+_____
 
 # vidWFT/core
 
-## export.py
+From a high level, one can use most of the functionality of vidWFT by interacting only with the contents of [vid2wav.py](./vidWFT/core/vid2wav.py).
+
+[vid2wav.py](./vidWFT/core/vid2wav.py) interacts directly with [export.py](./vidWFT/core/export.py), [orthorec.py](./vidWFT/core/orthorec.py), and [tracker.py](./vidWFT/core/tracker.py).
+
+It is recommended that the user uses [calibrate.py](./vidWFT/core/calibrate.py) separately to obtain camera calibration coefficients. See the [documentation](./docs/wft_calibrate.md) for examples and documentation about how to use [calibrate.py](./vidWFT/core/calibrate.py).
+## [export.py](./vidWFT/core/export.py)
 
 Python script designed for exporting extracted data/files.
 
@@ -60,7 +68,9 @@ Functions:
 - `assemble_text_output`: Assembles text output for a metadata file, including video metadata, calibration data, and additional parameters.
 - `prepare_files`: Prepares output files from video to waveform, including generating text metadata, saving raw and cleaned data to CSV, and generating figures.
 
-## calibrate.py
+___
+
+## [calibrate.py](./vidWFT/core/calibrate.py)
 
 Functions:
 
@@ -72,7 +82,9 @@ Functions:
 - `adjust_calibration_matrices`: Adjusts the camera matrix and distance coefficients to account for cropping.
 - `crop_video`: Crops a video based on a provided cropping region.
 
-## orthorec.py
+____
+
+## [orthorec.py](./vidWFT/core/orthorec.py)
 
 Functions:
 
@@ -87,7 +99,9 @@ Functions:
 - `rectify_by_gradation`: Uses gradation points to rectify an image by correcting size variations, assuming equally spaced gradations in real space.
 - `define_stakes`: Allows the user to draw lines on an image to define stakes, returning the coordinates and pixel columns of the stakes.
 
-## process.py
+_____
+
+## [process.py](./vidWFT/core/process.py)
 
 The file defines a WaveTimeSeries object which serves as the central object for analyzing wave data. The functionality is designed to break down the oceanlyz functionality into smaller blocks for increased functionality. (IN PROGRESS)
 
@@ -104,14 +118,18 @@ The file defines a WaveTimeSeries object which serves as the central object for 
 - `get_avg_wave_speed`: Returns the average wave speed.
 - `get_significant_wave_height`: Returns the significant wave height.
 
-## tracker.py
+___
+
+## [tracker.py](./vidWFT/core/tracker.py)
 
 This file contains functions for initializing and updating object trackers using OpenCV.
 
 - `tracker_init`: Initializes multiple object trackers by allowing the user to select regions of interest (ROIs) in a given frame. It creates and initializes tracker objects for each selected ROI.
 - `trackers_update`: Updates the positions of the tracked objects in each frame of a video sequence. It also optionally displays the tracking results by drawing bounding boxes around the tracked objects.
 
-## vid2wav.py
+____
+
+## [vid2wav.py](./vidWFT/core/vid2wav.py)
 
 This file contains several functions related to processing video frames to extract waveform data.
 
@@ -125,7 +143,7 @@ ______
 
 # calibration
 
-`calibration` represents a directory where calibration matrices and distance coefficents are stored. Additionally, images to obtain these matrices are stored here.  As it stands, the camera matrices and distance coefficents included are for the GoPro Hero 12 Black (with name acortiz@colbydotedu) in 1080p, 4k, and 5.3k video mode with horizon lock on.  A new matrix can be obtained using `vidWFT/core/calibrate.py`.
+`calibration` represents a directory where calibration matrices and distance coefficents are stored. Additionally, images to obtain these matrices are stored here.  As it stands, the camera matrices and distance coefficents included are for the GoPro Hero 12 Black (with name acortiz@colbydotedu) in 1080p, 4k, and 5.3k video mode with horizon lock on.  A new matrix can be obtained using [`vidWFT/core/calibrate.py`](./vidWFT/core/calibrate.py).
 
 
 ____

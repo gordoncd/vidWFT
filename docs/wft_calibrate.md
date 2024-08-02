@@ -109,12 +109,90 @@ Adjusts the camera matrix and distance coefficients to account for cropping.
 **Returns:**
 - [`tuple`](../../../../.vscode/extensions/ms-python.vscode-pylance-2024.7.1/dist/typeshed-fallback/stdlib/builtins.pyi"): Adjusted camera matrix and distance coefficients.
 
-## File Locations
+_____
 
-- [`calibrate.py`](../vidWFT/core/calibrate.py"): This file contains all the functions described above.
-- `relative/path/to/calibration/images`: Folder containing calibration images.
-- `relative/path/to/save/matrices`: Folder to save camera matrices.
-- `relative/path/to/video/file`: Path to the video file for frame extraction and undistortion.
-- `relative/path/to/matrix/file`: Path to the camera matrix file.
-- `relative/path/to/dist/file`: Path to the distance coefficient file.
-- `relative/path/to/output/video`: Path to save the undistorted or cropped and undistorted video.
+## Examples:
+
+### Example 1: Calibrate Camera
+```python
+import cv2
+import numpy as np
+import os
+import yaml
+import glob
+import tqdm
+from calibrate import calibrate_camera
+
+# Paths
+src = 'path/to/calibration/images'
+dest = 'path/to/save/matrices'
+base_filename = 'calibration_'
+
+# Calibrate the camera
+calibrate_camera(src, dest, base_filename, chessboard_size=(6, 9), show=True, verbose=True)
+```
+
+### Example 2: Load Camera Calibration Data
+```python
+from calibrate import load_camera_calibration_data
+
+# Paths
+matrix_path = 'path/to/save/matrices/calibration_camera_matrix.npy'
+distance_coefficient_path = 'path/to/save/matrices/calibration_dist_coeff.npy'
+
+# Load the calibration data
+camera_matrix, dist_coeffs = load_camera_calibration_data(matrix_path, distance_coefficient_path)
+print("Camera Matrix:\n", camera_matrix)
+print("Distortion Coefficients:\n", dist_coeffs)
+```
+
+### Example 3: Extract Calibration Frames from a Video
+```python
+from calibrate import extract_calibration_frames
+
+# Path to video file
+filepath = 'path/to/video.mp4'
+nframes = 10
+
+# Extract frames
+frames = extract_calibration_frames(filepath, nframes)
+for i, frame in enumerate(frames):
+    cv2.imshow(f'Frame {i}', frame)
+    cv2.waitKey(0)
+cv2.destroyAllWindows()
+```
+
+### Example 4: Undistort a Video
+```python
+from calibrate import undistort_video
+
+# Paths
+filepath = 'path/to/video.mp4'
+save_path = 'path/to/save/undistorted_video.mp4'
+matrix_path = 'path/to/save/matrices/calibration_camera_matrix.npy'
+distance_coefficient_path = 'path/to/save/matrices/calibration_dist_coeff.npy'
+
+# Load the calibration data
+camera_matrix = np.load(matrix_path)
+dist_coeffs = np.load(distance_coefficient_path)
+
+# Undistort the video
+undistort_video(filepath, camera_matrix, dist_coeffs, save_path, show=True)
+```
+
+### Example 5: Crop and Undistort a Video
+```python
+from calibrate import crop_and_undistort
+
+# Paths
+video_path = 'path/to/video.mp4'
+matrix_path = 'path/to/save/matrices/calibration_camera_matrix.npy'
+dist_path = 'path/to/save/matrices/calibration_dist_coeff.npy'
+output_path = 'path/to/save/cropped_undistorted_video.mp4'
+
+# Crop region (x, y, width, height)
+crop_region = (100, 100, 400, 400)
+
+# Crop and undistort the video
+crop_and_undistort(video_path, matrix_path, dist_path, crop_region, output_path)
+```

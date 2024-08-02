@@ -6,7 +6,7 @@ This module provides functions to initialize and update OpenCV object trackers f
 
 ## Functions
 
-### [`tracker_init`](command:_github.copilot.openSymbolFromReferences?%5B%7B%22%24mid%22%3A1%2C%22path%22%3A%22%2FUsers%2Fgordondoore%2FDocuments%2FGitHub%2FvidWFT%2FvidWFT%2Fcore%2Ftracker.py%22%2C%22scheme%22%3A%22file%22%7D%2C%7B%22line%22%3A6%2C%22character%22%3A4%7D%5D ../vidWFT/core/tracker.py)
+### [`tracker_init`](../vidWFT/core/tracker.py)
 
 ```python
 def tracker_init(frame: np.ndarray, num_stakes: int) -> tuple[list[cv2.Tracker], list[Sequence[int]]]:
